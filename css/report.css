@@ -1,0 +1,589 @@
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+@page {
+  size: A4;
+  margin: 0;
+}
+
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+/* SCREEN ONLY PREVIEW SCALE (SAFE) */
+@media screen {
+  body.preview-scale #pdf {
+    transform: scale(1.08);
+    transform-origin: top center;
+  }
+}
+
+#pdf {
+  /* width: 243mm; */
+  width: 210mm;
+  margin: auto;
+}
+
+/* ================= PAGE ================= */
+.page {
+  width: 100%;
+  height: 297mm;  
+  /* height: 320mm;   */
+  position: relative;
+  overflow: hidden;  
+
+   backface-visibility: visible;
+  transform: none;
+
+    /* backface-visibility: hidden;
+  transform: translateZ(0); */
+}
+/* .page:last-of-type {
+  page-break-after: avoid !important;
+}
+.page:not(:last-child) {
+  page-break-after: always;
+} */
+
+.urine-row .urine-name {
+  padding-left: 60px;   /* adjust as needed */
+}
+
+/* for 2 pdf color and normal  */
+/* ===== PLAIN PDF MODE ===== */
+.plain-mode .header,
+/* .plain-mode .footer,
+.plain-mode .footer-line,
+.plain-mode .footer-thanks, */
+.plain-mode .bg-image {
+  display: none !important;
+}
+
+/* keep space so content position doesn't move */
+.plain-mode .footer-safe {
+  height: 40mm;
+}
+
+.plain-mode .page {
+  background: #ffffff !important;
+}
+
+.plain-mode .page-content {
+  background: none !important;
+}
+
+/* ===== REMOVE TEMPLATE IMAGES IN PLAIN MODE ===== */
+.plain-mode .page::before,
+.plain-mode .page::after {
+  content: none !important;
+  background: none !important;
+  display: none !important;
+}
+
+
+/* footer  */
+
+.footer {
+  position: relative;
+  margin-top: 0mm;
+  font-size: 15px;
+  z-index: 2;
+  page-break-inside: avoid;
+}
+
+
+.footer-safe {
+  height: 40mm;   /* bottom image safe zone */
+}
+
+
+.footer-line {
+  border-top: 1px solid #000;
+  width: calc(100% - 0mm);
+  margin: 0 auto 6px auto;
+}
+
+.footer-text {
+    text-align: left;
+    padding-left: 3mm;
+}
+
+.footer-thanks {
+    text-align: right;
+    padding-right: 9mm;
+    margin-top: -2px;
+}
+
+
+.serology-block,
+.inner-serology,
+.no-page-break {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.test-block,
+.serology-block,
+.no-page-break,
+.inner-serology {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.serology-section {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+
+/* ================= TEMPLATE ================= */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    url("../assets/demotop.jpeg") top center no-repeat,
+    url("../assets/DEMOBOTTOM.jpeg") bottom center no-repeat;
+  background-size:
+    100% 71mm,
+    100% 45mm;
+  z-index: 0;
+   image-rendering: auto;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("../assets/DEMOBG.jpeg") center center no-repeat;
+  background-size: 55% auto;
+  opacity: 0.2;
+  /* z-index: -11111; */
+}
+
+/* ================= CONTENT ================= */
+
+
+.page-content {
+  position: relative;
+  z-index: 1;
+
+  padding-top: 51mm;     /* top image */
+  padding-left: 13mm;
+  padding-right: 13mm;
+  padding-bottom: 68mm;  /* bottom image */
+
+  height: 100%;
+  box-sizing: border-box;
+}
+
+
+/* .page-content::after {
+  content: "";
+  height: 38mm;      
+  flex-shrink: 0;
+} */
+
+/* ================= TEST AREA ================= */
+.tests {
+  width: 100%;
+  /* max-height: calc(297mm - 54mm - 38mm - 20mm - 40mm); */
+  /* page - topImg - bottomImg - patient - footerSafe */
+}
+
+
+
+
+/* ===== EACH TEST BLOCK ===== */
+.test-block {
+  display: block;
+  break-inside: avoid;
+  margin-bottom: 0mm;  /* 🎯 y += 7 effect */
+  page-break-inside: avoid;
+}
+
+/* ===== SECTION HEADING (URINE / DIFF COUNT) ===== */
+.test-block th[colspan="4"] {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-weight: 700;
+}
+.test-block tr th[colspan="4"] {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* ================= TABLE ================= */
+
+
+/* ===== TABLE ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;   /* 🎯 jsPDF match */
+ 
+  page-break-inside: avoid;
+
+
+}
+
+th {
+  font-weight: 700;
+  text-align: left;
+  padding: 4px 4px;
+  line-height: 1.25;
+}
+
+td {
+    padding: 4px 4px;
+    line-height: 1.2;
+    /* letter-spacing: 1px; */
+}
+
+
+
+/* ================= PATIENT ================= */
+.patient {
+  height: 20mm;
+  font-size: 15px;     /* 🎯 exact */
+  line-height: 1.55;    /* 🎯 row gap */
+  margin-bottom: 5mm;
+}
+
+
+.patient-row {
+  display: flex;
+  justify-content: space-between;
+  column-gap: 44mm;   /* 🔥 dono columns ke beech exact gap */
+}
+
+
+
+.patient-col {
+  width: 48%;
+}
+
+.patient-col.right {
+  text-align: left;   /* ❗ keep text aligned like original */
+}
+
+
+
+/* HR EXACT LIKE REPORT */
+.patient hr {
+  margin-top: 2mm;
+  border: none;
+  /* border-top: 1px solid #000; */
+}
+
+/* TWO MAIN COLUMNS */
+.patient-grid {
+  display: flex;
+  justify-content: space-between;
+  column-gap: 25mm;   /* 🔥 exact gap between left & right */
+}
+
+/* ONE ROW */
+
+.p-value {
+  font-weight: 600;
+}
+
+/* ===== PATIENT BLOCK ===== */
+
+
+
+/* EACH ROW = 3 FIXED COLUMNS */
+
+.p-row {
+    display: grid;
+    grid-template-columns: 17mm 7mm auto; /* LABEL | : | VALUE */
+    line-height: 1.45;
+    letter-spacing: 0.2px;
+    margin-bottom: 1.5mm;
+}
+
+.p-label {
+  font-weight: 600;
+}
+
+.p-colon {
+  text-align: center;
+}
+
+.p-value {
+  white-space: nowrap;
+}
+/* ===== TABLE BASE ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1mm;
+}
+
+/* ===== TEST TITLE ===== */
+.test-title th {
+  font-size: 17.3px;
+  font-weight: 700;
+  text-align: center;
+  padding: 6px 0;
+  /* border: 1px solid #000; */
+}
+
+/* ===== TABLE HEADER ===== */
+.test-head  {
+  border: 1px solid #000;
+ 
+}
+.test-head th {
+  font-size: 16px;
+  font-weight: 700;
+  /* border: 1px solid #000; */
+  padding: 6px 6px;
+}
+
+/* COLUMN ALIGNMENT */
+.test-head th:nth-child(1) { width: 40%; }
+.test-head th:nth-child(2) { width: 8%; }
+.test-head th:nth-child(3) { width: 18%; }
+.test-head th:nth-child(4) { width: 30%; }
+
+
+/* ===== TABLE ROWS ===== */
+.test-row td {
+  
+  vertical-align: middle !important;
+    font-size: 15px;
+    /* font-weight: 500; */
+    /* border: 1px solid #000; */
+    padding: 2px 6px;
+}
+
+/* BODY COLUMN ALIGN */
+.test-row td:nth-child(2) { padding-left: 8px; }
+.test-row td:nth-child(2),
+.test-row td:nth-child(3),
+.test-row td:nth-child(4) {
+  text-align: left;;
+}
+.test-row {
+  vertical-align: middle;
+}
+
+/* .td-result .result-value,
+.td-result .flag {
+  position: relative;
+  top: 50%;
+  transform: translateY(0%);
+} */
+
+
+/* RESULT LOOK (OPTIONAL BOLD LIKE REPORT) */
+/* .td-result {
+  font-weight: 600;
+} */
+
+/* DLC indentation */
+.test-row.dlc-row td:first-child {
+  padding-left: 29px;
+}
+/* DLC heading */
+.dlc-heading td {
+  /* font-weight: 700; */
+  padding: 6px 8px;
+  /* border: 1px solid #000; */
+  /* background: #fff; */
+}
+
+/* DLC indentation */
+.dlc-name {
+  padding-left: 16px;
+}
+
+/* Reference column line spacing */
+.td-ref div {
+  line-height: 1.3;
+}
+/* URINE TABLE */
+.urine-investigation {
+  width: 34%;
+  text-align: left;
+  padding-left: 10px;
+}
+
+.urine-result,
+.urine-result-head {
+  width: 40%;
+  text-align: left;   /* yahin se left/right adjust */
+  padding-left: 10px;
+}
+
+/* Section heading */
+.urine-section th {
+  text-align: left;
+  font-weight: bold;
+  padding: 6px 10px;
+}
+
+.td-result {
+  position: relative; 
+  /* display: flex;           */
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;               /* 🔥 MOST IMPORTANT */
+  white-space: nowrap;
+}
+.td-result {
+  white-space: nowrap;
+  padding-top: 6px;
+   padding-bottom: 0;
+}
+
+
+/* value part */
+.result-value {
+  display: inline-block;
+  min-width: 55px;   /* 🔥 value column width fix */
+}
+
+/* flag */
+.flag {
+  display: inline-block;
+  min-width: 50px;
+  text-align: left;
+  margin-left: 6px;
+}
+
+ /* flag  */
+ .flag {
+  font-weight: bold;
+  margin-left: 6px;
+}
+.flag {
+  color: red !important;
+  font-weight: 700;
+}
+.flag:contains("H"),
+.flag:contains("L") {
+  color: red;
+}
+
+.urine-abnormal {
+  color: red;
+  font-weight: bold;
+}
+
+.urine-normal {
+  color: #000;
+  font-weight: normal;
+}
+
+
+.normal-value {
+  color: #000;
+  font-weight: normal;
+}
+
+.abnormal-value {
+  color: #c00000;
+  font-weight: 750;
+}
+
+/* .flag {
+  font-size: 0.85em;
+} */
+
+.shift-flag {
+  margin-left: 6px;
+}
+/* ✅ ONLY URINE RESULT COLUMN */
+.urine-table {
+  table-layout: fixed;
+}
+
+.urine-table td:nth-child(1) {
+  width: 60%;
+}
+
+.urine-table td:nth-child(2) {
+  width: 40%;
+  padding-left: 0;
+  text-align: left;
+}
+
+
+/* BIOCHEM SUB HEADING GAP FIX */
+.bio-subtitle th {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-weight: 600;
+  text-align: left;
+}
+.bio-sub-row td {
+  padding: 6px 8px;
+  /* font-weight: 600; */
+  text-align: left;
+}
+
+/* ================= ATOMIC CATEGORY BLOCK ================= */
+.category-block {
+  display: block;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* force table + header together */
+.category-block table {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* prevent footer overlap */
+.category-block:last-child {
+  margin-bottom: 0;
+}
+.mono-space {
+  white-space: pre;        /* 🔥 MOST IMPORTANT */
+  /* font-family: "Courier New", monospace; */
+}
+
+.result-value {
+  font-weight: normal;
+  color: black;
+}
+.serology-positive {
+  /* color: #c00000 !important; */
+  font-weight: 750 !important;
+}
+
+.normal-value {
+  color: #000;
+  font-weight: 400;
+}
+
+.abnormal-value {
+  color: red;
+  font-weight: bold;
+}
+.bldgr {
+  color: rgb(0, 0, 0);
+  font-weight: bold;
+}
+
+.td-result.abnormal-value span.result-value {
+  color: red !important;
+  font-weight: bold !important;
+}
+
