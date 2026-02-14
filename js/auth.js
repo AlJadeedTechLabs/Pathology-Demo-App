@@ -1,7 +1,7 @@
 import { supabase } from "./supabase.js";
 
 const BASE_PATH = window.location.hostname.includes("github.io")
-  ? "/Pathology-Demo"
+  ? "/Pathology-Demo-App"
   : "";
 
 /* ========= LOGIN ========= */
