@@ -65,21 +65,26 @@ function renderHistory(data) {
     const card = document.createElement("div");
     card.className = "history-card";
 
-    card.innerHTML = `
-      <div class="history-header">Date</div>
-      <div class="history-value mb-2">${formattedDate}</div>
-
-      <div class="history-header">Patient</div>
-      <div class="history-value mb-2">${row.patient.name}</div>
-
-      <div class="history-header">LRN</div>
-      <div class="history-value mb-3">${String(row.lrn).padStart(2, "0")}</div>
-
-      <button class="btn btn-primary btn-block"
+   card.innerHTML = `
+  <div class="history-top">
+    <div class="history-date">${formattedDate}</div>
+    <div class="history-action">
+      <button class="btn btn-primary btn-sm"
         onclick="previewReport('${row.id}')">
-        View Report
+        View
       </button>
-    `;
+    </div>
+  </div>
+
+  <div class="history-patient">
+    ${row.patient.name}
+  </div>
+
+  <div class="history-lrn">
+    LRN: ${String(row.lrn).padStart(2, "0")}
+  </div>
+`;
+
 
     mobileContainer.appendChild(card);
   });
