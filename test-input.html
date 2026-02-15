@@ -21,46 +21,76 @@
 </body>
 <style>
 /* ===== PAGE ===== */
+/* ===== PAGE BACKGROUND ===== */
 body {
-  background: #f4f6f8;
+  background: linear-gradient(135deg, #eef2ff, #f8f9ff);
+  min-height: 100vh;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 .container {
-  max-width: 900px;
+  max-width: 950px;
 }
+
 
 /* ===== PATIENT INFO ===== */
+/* ===== PATIENT INFO PREMIUM ===== */
 #patientInfo {
-  font-weight: 600;
-  font-size: 18px;
-  margin-bottom: 15px;
+  font-weight: 700;
+  font-size: 20px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  box-shadow: 0 10px 25px rgba(102,126,234,0.25);
 }
 
+
 /* ===== CARD ===== */
+/* ===== PREMIUM CARD ===== */
 .card {
   background: #ffffff;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 25px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.06);
   border: none;
+  transition: 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 45px rgba(0,0,0,0.1);
 }
 
 .card-title {
   font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 14px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #eee;
-  color: #333;
+  font-weight: 700;
+  margin-bottom: 18px;
+  padding-bottom: 8px;
+  position: relative;
 }
+
+.card-title::after {
+  content: "";
+  width: 50px;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  border-radius: 10px;
+}
+
 
 /* ===== GRID ===== */
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 14px;
+  gap: 16px 20px;
 }
+
 
 /* ===== LABEL + INPUT ===== */
 label {
@@ -71,18 +101,21 @@ label {
 
 .input {
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
   font-size: 14px;
   outline: none;
-  transition: 0.2s;
+  transition: 0.3s ease;
+  background: #f9faff;
 }
 
 .input:focus {
-  border-color: #28a745;
-  box-shadow: 0 0 0 2px rgba(40,167,69,0.15);
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+  background: #ffffff;
 }
+
 
 /* ===== FULL WIDTH FIELD ===== */
 .full-row {
@@ -91,20 +124,35 @@ label {
 
 /* ===== BUTTON ===== */
 button.btn-success {
-  border-radius: 10px;
+  border-radius: 14px;
   font-size: 16px;
-  padding: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  font-weight: 600;
+  transition: 0.3s ease;
 }
+
+button.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(102,126,234,0.3);
+}
+
 
 /* ===== MOBILE ===== */
 @media (max-width: 768px) {
 
   .container {
-    padding: 12px;
+    padding: 15px;
   }
 
   #patientInfo {
-    font-size: 16px;
+    font-size: 17px;
+    padding: 12px;
+  }
+
+  .card {
+    padding: 16px;
   }
 
   .card-title {
@@ -115,19 +163,16 @@ button.btn-success {
     grid-template-columns: 1fr;
   }
 
-  .full-row {
-    grid-column: span 1;
-  }
-
   .input {
     font-size: 15px;
-    padding: 10px;
+    padding: 12px;
   }
 
   button.btn-success {
     width: 100%;
   }
 }
+
 </style>
 
 </html>
