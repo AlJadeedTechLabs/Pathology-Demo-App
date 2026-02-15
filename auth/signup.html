@@ -21,17 +21,24 @@
   <link rel="stylesheet" href="signup.css">
 </head>
 
+<body style="display:none;">
+
 <script>
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
 
-  if (token !== "AJTL_92xLmP") {
-    document.body.innerHTML = "Access Denied";
+  if (token === "AJTL_92xLmP") {
+    document.body.style.display = "block";
+  } else {
+    document.body.innerHTML = `
+      <div style="height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:sans-serif;">
+        <h2>Access Denied</h2>
+      </div>
+    `;
   }
 </script>
 
 
-<body>
 
 <div class="main-wrapper">
 
