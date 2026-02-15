@@ -18,13 +18,13 @@ export async function login(email, password) {
 
   const userId = data.user.id;
 
-  const { data: licence, error: licenceError } = await supabase
+  const { data: licence } = await supabase
     .from("user_licence")
     .select("*")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
-  if (licenceError || !licence) {
+  if (!licence) {
     await supabase.auth.signOut();
     alert("Licence not found. Contact Aljadeed Tech Labs.");
     return;
@@ -40,7 +40,7 @@ export async function login(email, password) {
     await supabase.auth.signOut();
     alert(
       "Your subscription has expired.\n" +
-      "Contact Aljadeed Tech Labs to increase your subscription licence."
+      "Contact Aljadeed Tech Labs to renew."
     );
     return;
   }
@@ -48,12 +48,21 @@ export async function login(email, password) {
   window.location.href = `${BASE_PATH}/index.html`;
 }
 
-/* ========= SIGNUP ========= */
-export async function signup(email, password) {
 
-  const { data, error } = await supabase.auth.signUp({
+/* ========= SIGNUP ========= */
+export async function signup(email, password, labname, mobile) {
+
+  const { error } = await supabase.auth.signUp({
     email,
-    password
+    password,
+    phone: mobile, // store in auth.users phone column
+    options: {
+      data: {
+        lab_name: labname,
+        mobile: mobile,
+        display_name: labname
+      }
+    }
   });
 
   if (error) {
@@ -61,13 +70,9 @@ export async function signup(email, password) {
     return;
   }
 
-  if (!data.user) {
-    alert("Signup failed.");
-    return;
-  }
-
-  alert("Signup successful! Please check your email.");
+  alert("Account created! Please verify your email.");
 }
+
 
 /* ========= PAGE PROTECT ========= */
 export async function protectPage() {
