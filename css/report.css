@@ -147,7 +147,7 @@ body {
 
 
 /* ================= TEMPLATE ================= */
-.page::before {
+/* .page::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -170,7 +170,29 @@ body {
   background: url("../assets/DEMOBG.jpeg") center center no-repeat;
   background-size: 55% auto;
   opacity: 0.2;
-  /* z-index: -11111; */
+  */
+ 
+
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--lab-top), var(--lab-bottom);
+  background-position: top center, bottom center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 71mm, 100% 45mm;
+  z-index: 0;
+}
+
+.page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--lab-bg);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 55% auto;
+  opacity: 0.2;
 }
 
 /* ================= CONTENT ================= */
