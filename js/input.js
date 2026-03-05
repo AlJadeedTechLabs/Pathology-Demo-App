@@ -7,8 +7,270 @@ function makeKey(testKey, name) {
     .toUpperCase();
 }
 
+/* =====================================================
+   🔹 HELPER: Safe Number Parse
+===================================================== */
+function toNum(val) {
+  const num = parseFloat(val);
+  return isNaN(num) ? NaN : num;
+}
+
+/* =====================================================
+   🔹 DLC + BASOPHILS AUTO
+===================================================== */
+window.autoCalculateBasophils = function () {
+
+  const dlcInputs = document.querySelectorAll(".dlc-input");
+  let total = 0;
+
+  dlcInputs.forEach(input => {
+    total += parseFloat(input.value) || 0;
+  });
+
+  const basoInput = document.querySelector(".baso-input");
+  if (!basoInput) return;
+
+  const baso = 100 - total;
+
+  basoInput.value = !isNaN(baso)
+    ? baso.toFixed(2)
+    : "";
+};
+
+/* =====================================================
+   🔹 RBC INDICES AUTO
+===================================================== */
+window.autoCalculateRBCIndices = function () {
+
+  let hb = 0, hct = 0, rbc = 0;
+  let mcvInput = null;
+  let mchInput = null;
+  let mchcInput = null;
+
+  document.querySelectorAll("input").forEach(input => {
+
+    const id = input.id?.toLowerCase() || "";
+
+    if (id.includes("haemoglobin")) hb = parseFloat(input.value) || 0;
+    if (id.includes("hct")) hct = parseFloat(input.value) || 0;
+    if (id.includes("rbc")) rbc = parseFloat(input.value) || 0;
+
+    if (id.endsWith("mcv")) mcvInput = input;
+    if (id.endsWith("mch")) mchInput = input;
+    if (id.endsWith("mchc")) mchcInput = input;
+  });
+
+  if (hb > 0 && hct > 0 && rbc > 0) {
+
+    const mcv  = (hct * 10) / rbc;
+    const mch  = (hb * 10) / rbc;
+    const mchc = (hb * 100) / hct;
+
+    if (mcvInput)  mcvInput.value  = mcv.toFixed(2);
+    if (mchInput)  mchInput.value  = mch.toFixed(2);
+    if (mchcInput) mchcInput.value = mchc.toFixed(2);
+  }
+};
+
+document.addEventListener("input", function(e) {
+
+  const id = e.target.id?.toLowerCase() || "";
+
+  if (
+    id.includes("haemoglobin") ||
+    id.includes("hct") ||
+    id.includes("rbc")
+  ) {
+    window.autoCalculateRBCIndices();
+  }
+
+});
 
 
+/* =====================================================
+   🔹 COAGULATION AUTO
+===================================================== */
+window.autoCalculateCoagulation = function (testKey) {
+
+  if (!testKey) return;
+
+  const getVal = (label) => {
+    const el = document.getElementById(makeKey(testKey, label));
+    return el ? toNum(el.value.replace(/,/g, "")) : NaN;
+  };
+
+  const setVal = (label, value) => {
+    const el = document.getElementById(makeKey(testKey, label));
+   if (el && !el.dataset.manual) el.value = value;
+  };
+
+  const ptPatient = getVal("Patient Value (PT)");
+  const ptControl = getVal("Control Value (CT)");
+  const isi = getVal("I.S.I. Value");
+
+  const apttPatient = getVal("aPTT Patient Value");
+  const apttControl = getVal("aPTT Control Value");
+
+  setVal("Prothrombin Ratio", "");
+  setVal("International Normalised Ratio (INR)", "");
+  setVal("Prothrombin Index", "");
+  setVal("aPTT Ratio", "");
+
+  if (!isNaN(ptPatient) && !isNaN(ptControl) && ptControl > 0) {
+
+    const ptRatio = ptPatient / ptControl;
+    setVal("Prothrombin Ratio", ptRatio.toFixed(2));
+
+    if (!isNaN(isi) && isi > 0) {
+      const inr = Math.pow(ptRatio, isi);
+      setVal("International Normalised Ratio (INR)", inr.toFixed(2));
+    }
+
+    const pi = (ptControl / ptPatient) * 100;
+    setVal("Prothrombin Index", pi.toFixed(2));
+  }
+
+  if (!isNaN(apttPatient) && !isNaN(apttControl) && apttControl > 0) {
+    const apttRatio = apttPatient / apttControl;
+    setVal("aPTT Ratio", apttRatio.toFixed(2));
+  }
+};
+
+
+/* =====================================================
+   🔹 LFT AUTO
+===================================================== */
+window.autoCalculateLFT = function (testKey) {
+
+  const get = (name) =>
+    document.getElementById(makeKey(testKey, name));
+
+  const totalBilEl = get("SERUM BILIRUBIN TOTAL");
+  const directBilEl = get("DIRECT");
+  const indirectEl = get("INDIRECT");
+
+  const totalProteinEl = get("SERUM PROTEINS TOTAL");
+  const albuminEl = get("ALBUMIN");
+  const globulinEl = get("GLOBULIN");
+  const agRatioEl = get("AG RATIO");
+
+  const totalBil = toNum(totalBilEl?.value);
+  const directBil = toNum(directBilEl?.value);
+  const totalProtein = toNum(totalProteinEl?.value);
+  const albumin = toNum(albuminEl?.value);
+
+  if (indirectEl) {
+    indirectEl.value =
+      (!isNaN(totalBil) && !isNaN(directBil))
+        ? Math.max(0, totalBil - directBil).toFixed(2)
+        : "";
+  }
+
+  if (globulinEl) {
+
+    if (!isNaN(totalProtein) && !isNaN(albumin)) {
+
+      const glob = totalProtein - albumin;
+      globulinEl.value = glob >= 0 ? glob.toFixed(2) : "";
+
+      if (agRatioEl) {
+        agRatioEl.value =
+          glob > 0 ? (albumin / glob).toFixed(2) : "";
+      }
+
+    } else {
+      globulinEl.value = "";
+      if (agRatioEl) agRatioEl.value = "";
+    }
+  }
+};
+
+
+/* =====================================================
+   🔹 LIPID PROFILE AUTO
+===================================================== */
+window.autoCalculateLipid = function (testKey) {
+
+  const get = (name) =>
+    document.getElementById(makeKey(testKey, name));
+
+  const total = toNum(get("TOTAL CHOLESTEROL")?.value);
+  const tg = toNum(get("TRIGLYCERIDES")?.value);
+  const hdl = toNum(get("HDL CHOLESTEROL")?.value);
+
+  const ldlEl = get("LDL CHOLESTEROL");
+  const vldlEl = get("VLDL CHOLESTEROL");
+  const tcHdlEl = get("T CHOLE. / HDL CHOLE. RATIO");
+  const ldlHdlEl = get("LDL / HDL RATIO");
+  const tgHdlEl = get("TRIGLYCERIDE / HDL RATIO");
+  const nonHdlEl = get("NON HDL CHOLESTEROL");
+
+ const autoFields = [ldlEl, vldlEl, tcHdlEl, ldlHdlEl, tgHdlEl, nonHdlEl];
+
+autoFields.forEach(el => {
+  if (el && !el.dataset.manual) {
+    el.value = "";
+  }
+});
+
+  if (isNaN(total) || isNaN(tg) || isNaN(hdl)) return;
+
+  const vldl = tg / 5;
+  if (vldlEl) vldlEl.value = vldl.toFixed(2);
+
+  if (tg < 400) {
+    const ldl = total - hdl - vldl;
+    if (ldlEl) ldlEl.value = ldl.toFixed(2);
+    if (hdl !== 0 && ldlHdlEl)
+      ldlHdlEl.value = (ldl / hdl).toFixed(2);
+  }
+
+  if (hdl !== 0) {
+    if (tcHdlEl) tcHdlEl.value = (total / hdl).toFixed(2);
+    if (tgHdlEl) tgHdlEl.value = (tg / hdl).toFixed(2);
+  }
+
+  if (nonHdlEl)
+    nonHdlEl.value = (total - hdl).toFixed(2);
+};
+
+
+/* =====================================================
+   🔹 KFT AUTO
+===================================================== */
+window.autoCalculateKFT = function (testKey) {
+
+  const ureaEl = document.getElementById(makeKey(testKey, "BLOOD UREA"));
+  const bunEl = document.getElementById(makeKey(testKey, "BUN"));
+
+  const urea = toNum(ureaEl?.value);
+
+  if (bunEl) {
+    bunEl.value =
+      !isNaN(urea)
+        ? (urea * 0.467).toFixed(2)
+        : "";
+  }
+};
+
+
+/* =====================================================
+   🔹 HbA1c AUTO
+===================================================== */
+window.autoCalculateHBA = function (testKey) {
+
+  const hbaEl = document.getElementById(makeKey(testKey, "HbA1c"));
+  const eagEl = document.getElementById(makeKey(testKey, "Estimated Average Glucose (eAG)"));
+
+  const hba = toNum(hbaEl?.value);
+
+  if (eagEl) {
+    eagEl.value =
+      !isNaN(hba)
+        ? ((28.7 * hba) - 46.7).toFixed(2)
+        : "";
+  }
+};
 // function makeKey(testKey, name) {
 //   return `${testKey}_${name}`
 //     .replace(/[^\w]/g, "_")
@@ -60,7 +322,7 @@ function renderSerologyFields(fields = [], subtitles = []) {
     `;
   });
 }
-
+console.log(document.querySelectorAll(".dlc-input"))
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -192,9 +454,29 @@ const isESR = test =>
   //HEMATOLOGYESR
 const isHBA = test =>
   String(test.key || "").toUpperCase() === "HBA";
+
+const isIRON = test =>
+  String(test.key || "").toUpperCase() === "IRON";
+
+const isCALPHOS = test =>
+  String(test.key || "").toUpperCase() === "CALCIUM_PHOS";
+
+const isVITD = test =>
+  String(test.key || "").toUpperCase() === "VITD";
+
+const isTHYROID2 = test =>
+  String(test.key || "").toUpperCase() === "THYROID2";
+
+
   //HEMATOLOGYESR
 const isSRCAL = test =>
   String(test.key || "").toUpperCase() === "SRCAL";
+
+const isCARDP = test =>
+  String(test.key || "").toUpperCase() === "CARDIAC PROFILE";
+
+const isSICK = test =>
+  String(test.class || "").toUpperCase() === "SICKLING";
 
 
 
@@ -254,7 +536,66 @@ if (isCRP(test)) {
 
   html += `</div>`;
 }
+// ====================== TROPONIN ======================
+else if (test.class === "TROPONIN") {
+console.log("TROPONIN TEST OBJECT:", test);
+console.log("TEST KEY:", testKey);
+  html += `
+    <h5 class="mt-3 mb-2">${test.title}</h5>
+  `;
 
+  (test.sections || []).forEach(section => {
+
+    html += `<h6 class="mt-3">${section.title}</h6>`;
+    html += `<div>`;
+
+    (section.fields || []).forEach(f => {
+
+      const name = f.name;
+      const key  = makeKey(testKey, name);
+
+      // 🔹 SELECT FIELD
+      if (f.type === "select") {
+        html += `
+          <label>${name}</label>
+          <select id="${key}" class="input full-row">
+            <option value="">Select</option>
+            ${(f.options || []).map(opt =>
+              `<option value="${opt}">${opt}</option>`
+            ).join("")}
+          </select>
+        `;
+      }
+
+      // 🔹 CLIA FIELD
+      // else if (name === "Troponin I Plasma (CLIA)") {
+      //   html += `
+      //     <div id="${key}_wrapper" style="display:none">
+      //       <label>${name}${f.unit ? " (" + f.unit + ")" : ""}</label>
+      //       <input type="text"
+      //              id="${key}"
+      //              class="input full-row"
+      //              placeholder="0.3">
+      //     </div>
+      //   `;
+      // }
+
+      // 🔹 NORMAL TEXT FIELD
+      else if (f.type === "text") {
+        html += `
+          <label>${name}</label>
+          <input type="text"
+                 id="${key}"
+                 class="input full-row"
+                 placeholder="${name}">
+        `;
+      }
+
+    });
+
+    html += `</div>`;
+  });
+}
     // ====================== TEST SECTIONS ======================
   else if (test.sections && !isSEROLOGY(test)) {
 
@@ -271,53 +612,66 @@ if (isCRP(test)) {
 
 
 // ====================== BIOCHEMISTRY: BLOOD SUGAR TEST ======================
-else if  (isSugarTest(test)) {
+else if (isSugarTest(test)) {
 
-  html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
+ html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
 
- test.fields.forEach(f => {
+test.fields.forEach(f => {
 
-  // ❌ skip sub-only rows in FORM
-  if (!f.name) return;
+  // ✅ SECTION HEADING SHOW
+  if (f.section) {
+    html += `
+      <div class="full-row section-heading">
+        ${f.section}
+      </div>
+    `;
+    return;
+  }
 
-  const name = f.name;
-  const sub = f.sub || "";
-  const key = makeKey(testKey, f.name);
-
-
-    // ✅ PARALLEL URINE SUGAR → SELECT
-if (f.type === "select") {
-  html += `
-    <label>${name}</label>
-    <select class="input full-row" id="${key}">
-      <option value="">Select</option>
-      ${f.options.map(opt =>
-        `<option value="${opt}">${opt}</option>`
-      ).join("")}
-    </select>
-  `;
-}
-
-
-    // ✅ BLOOD SUGAR INPUT
-    else {
+  // ❌ Skip if no name (like sub rows)
+  if (!f.name) {
+    if (f.sub) {
       html += `
-        <label>
-          ${name}
-          ${sub ? `<br><span class="sub-label">${sub}</span>` : ""}
-        </label>
-        <input
-          type="text"
-          class="input full-row"
-          id="${key}"
-           inputmode="decimal"
-           oninput="onlyFloatDot(this)""
-        >
+        <div class="full-row sub-label">
+          ${f.sub}
+        </div>
       `;
     }
-  });
+    return;
+  }
 
-  html += `</div>`;
+  const key = makeKey(testKey, f.name);
+
+  // ✅ SELECT FIELD
+  if (f.type === "select") {
+    html += `
+      <label>${f.name}</label>
+      <select class="input full-row" id="${key}">
+        <option value="">Select</option>
+        ${f.options.map(opt =>
+          `<option value="${opt}">${opt}</option>`
+        ).join("")}
+      </select>
+    `;
+  }
+
+  // ✅ DECIMAL FIELD
+  else {
+    html += `
+      <label>${f.name}</label>
+      <input
+        type="text"
+        class="input full-row"
+        id="${key}"
+        inputmode="decimal"
+        oninput="onlyFloatDot(this)"
+      >
+    `;
+  }
+
+});
+
+html += `</div>`;
 }
 
 // ====================== BIOCHEMISTRY : LIVER FUNCTION TEST ======================
@@ -326,21 +680,60 @@ else if (isLFT(test)) {
   html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
 
   test.fields.forEach(f => {
+
     const key = makeKey(testKey, f.name);
+    const lname = f.name.toLowerCase().trim();
 
-    html += `
+    const isAuto =
+      lname.includes("indirect") ||
+      lname.includes("globulin") ||
+      lname.includes("ag");
+
+    const isTrigger =
+      lname.includes("bilirubin total") ||
+      lname === "direct" ||
+      lname.includes("protein") ||
+      lname.includes("albumin");
+
+      html += `
       <label>${f.name}</label>
-     <input
-  type="text"
-  class="input full-row lft-input"
-  id="${key}"
-  inputmode="decimal"
-/>
+      <input
+        type="text"
+        class="input full-row lft-input ${isAuto ? "auto-field" : ""}"
+        id="${key}"
+        inputmode="decimal"
 
+      
+        
+       oninput="
+  onlyFloatDot(this);
+  ${isTrigger ? `autoCalculateLFT('${testKey}')` : ""}
+  ${isAuto ? `this.dataset.manual='true'` : ""}
+"
+      />
     `;
+
+    // html += `
+    //   <label>${f.name}</label>
+    //   <input
+    //     type="text"
+    //     class="input full-row lft-input ${isAuto ? "auto-field" : ""}"
+    //     id="${key}"
+    //     inputmode="decimal"
+
+    //     ${isAuto ? "readonly" : ""}
+        
+    //    oninput="onlyFloatDot(this)"
+    //   />
+    // `;
   });
 
-  html += `</div>`;
+ html += `</div>`;
+
+setTimeout(() => {
+  bindLFTEvents(testKey);
+  autoCalculateLFT(testKey);   // 🔥 MUST BE HERE
+}, 0);
 }
 // ====================== BIOCHEMISTRY : LIPID PROFILE TEST ======================
 else if (isLPT(test)) {
@@ -348,17 +741,35 @@ else if (isLPT(test)) {
   html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
 
   test.fields.forEach(f => {
+
     const key = makeKey(testKey, f.name);
+    const lname = f.name.toLowerCase().trim();
+
+    const isAuto =
+      lname.includes("ldl cholesterol") ||
+      lname.includes("vldl") ||
+      lname.includes("ratio") ||
+      lname.includes("non hdl");
+
+    const isTrigger =
+      lname.includes("total cholesterol") ||
+      lname.includes("triglycerides") ||
+      lname.includes("hdl cholesterol");
 
     html += `
       <label>${f.name}</label>
      <input
   type="text"
-  class="input full-row lft-input"
+  class="input full-row lipid-input ${isAuto ? "auto-field" : ""}"
   id="${key}"
   inputmode="decimal"
-/>
 
+  oninput="
+    onlyFloatDot(this);
+    ${isTrigger ? `autoCalculateLipid('${testKey}')` : ""}
+    ${isAuto ? `this.dataset.manual='true'` : ""}
+  "
+/>
     `;
   });
 
@@ -396,6 +807,337 @@ else if (isESR(test)) {
 
   html += `</div>`;
 }
+
+// ====================== FLUID EXAMINATION ======================
+// ====================== FLUID ======================
+else if (test.class === "FLUID") {
+
+  html += `<h5 class="mt-3 mb-2">${test.title}</h5><div>`;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+
+    html += `<label>${f.name} ${f.unit ? "(" + f.unit + ")" : ""}</label>`;
+
+    // Heading special case
+    if (f.name === "Heading") {
+
+      html += `
+        <select id="${key}" class="input">
+          ${test.headings.map(h => `<option value="${h}">${h}</option>`).join("")}
+        </select>
+      `;
+    }
+
+    else if (f.type === "select") {
+
+      html += `
+        <select id="${key}" class="input">
+          ${f.options.map(o => `<option value="${o}">${o}</option>`).join("")}
+        </select>
+      `;
+    }
+
+    else if (f.type === "textarea") {
+
+      html += `<textarea id="${key}" class="input"></textarea>`;
+    }
+
+    else {
+
+      html += `<input type="text" id="${key}" class="input" />`;
+    }
+
+  });
+
+  html += `</div>`;
+}
+// ====================== HEMATOLOGY : SICKLING TEST ======================
+// ====================== HEMATOLOGY : SICKLING TEST ======================
+else if (isSICK(test)) {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.subtitle}</h5>
+    <div class="grid">
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+    const timeKey = makeKey(testKey, f.name + "_TIME");
+
+    html += `
+      <div class="full-row sickling-row">
+        <label>${f.name}</label>
+
+        <select id="${key}" class="input">
+          <option value="">Select</option>
+          ${f.options.map(opt => `
+            <option value="${opt}">${opt}</option>
+          `).join("")}
+        </select>
+    `;
+
+    // ✅ ONLY for EARLY & LATE add time input
+    if (f.name === "EARLY" || f.name === "LATE") {
+
+      html += `
+        <input 
+          type="text"
+          placeholder="After __ hrs"
+          id="${timeKey}"
+          class="input time-input"
+        />
+      `;
+    }
+
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+}
+// ====================== HEMATOLOGY : COOMBS TEST ======================
+else if (test.class === "COOMBS TEST") {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.subtitle}</h5>
+    <div class="grid">
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+
+    html += `
+      <div class="field full-row">
+        <label for="${key}">${f.name}</label>
+        <select id="${key}" class="input">
+          <option value="">Select</option>
+          ${f.options.map(opt => `
+            <option value="${opt}">${opt}</option>
+          `).join("")}
+        </select>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+}
+// ====================== BGA TEST ======================
+else if (test.class === "BGA") {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.title}</h5>
+    <div class="">
+  `;
+
+  test.fields.forEach(f => {
+
+    if (f.section) {
+      html += `
+        <div class="full-row sub-heading">
+          ${f.section}
+        </div>
+      `;
+      return;
+    }
+
+    const key = makeKey(testKey, f.name);
+
+    html += `
+      <label>${f.name}</label>
+      <input
+        type="text"
+        id="${key}"
+        class="input"
+        inputmode="decimal"
+        oninput="onlyFloatDot(this);"
+      />
+    `;
+  });
+
+  html += `</div>`;
+}
+// ====================== PREGNANCY TEST ======================
+else if (test.class === "PREGNANCY") {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.title}</h5>
+    <div class="">
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+
+    // 🔹 URINE PREGNANCY TEST (Dropdown)
+    if (f.name === "URINE PREGNANCY TEST") {
+
+      html += `
+        <label>${f.name}</label>
+        <select
+          id="${key}"
+          class="input"
+        >
+          <option value=""></option>
+          <option value="POSITIVE">POSITIVE</option>
+          <option value="NEGATIVE">NEGATIVE</option>
+        </select>
+      `;
+    }
+
+    // 🔹 REMARK (Text Input)
+    else if (f.name === "REMARK") {
+
+      html += `
+        <label>${f.name}</label>
+        <input
+          type="text"
+          id="${key}"
+          class="input"
+        />
+      `;
+    }
+
+  });
+
+  html += `</div>`;
+}
+// ====================== MANTOUX + MALARIA ======================
+else if (test.class === "MXMAL") {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.title}</h5>
+    <div class="">
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+
+    // 🔹 Mantoux numeric
+    if (f.name === "Mantoux Test") {
+      html += `
+        <label>${f.name}</label>
+        <input
+          type="text"
+          id="${key}"
+          class="input"
+          inputmode="decimal"
+        />
+      `;
+    }
+
+    else if (f.name === "Induration") {
+      html += `
+        <label>${f.name}</label>
+        <input
+          type="text"
+          id="${key}"
+          class="input"
+        />
+      `;
+    }
+
+    // 🔹 Malaria dropdown
+    else {
+      html += `
+        <label>${f.name}</label>
+        <select id="${key}" class="input">
+          <option value=""></option>
+          <option value="NEGATIVE">NEGATIVE</option>
+          <option value="POSITIVE">POSITIVE</option>
+          <option value="REACTIVE">REACTIVE</option>
+          <option value="NON REACTIVE">NON REACTIVE</option>
+        </select>
+      `;
+    }
+
+  });
+
+  html += `</div>`;
+}
+// ====================== ADA TEST ======================
+else if (test.class === "ADA") {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.title}</h5>
+    <div class="">
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+
+    if (f.name === "ADA") {
+      html += `
+        <label>${f.name} (U/L)</label>
+        <input
+          type="text"
+          id="${key}"
+          class="input"
+          inputmode="decimal"
+          oninput="onlyFloatDot(this);"
+        />
+      `;
+    }
+
+    if (f.name === "Sample Type") {
+      html += `
+        <label>Sample Type</label>
+        <select id="${key}" class="input">
+          <option value="Serum">Serum</option>
+          <option value="CSF">CSF</option>
+        </select>
+      `;
+    }
+
+  });
+
+  html += `</div>`;
+}
+
+// ====================== BETA HCG ======================
+else if (test.class === "BHCG") {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.title}</h5>
+    <div>
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+
+    if (f.name === "β - HCG") {
+      html += `
+        <label>${f.name} (${f.unit})</label>
+        <input 
+          type="text"
+          id="${key}"
+          class="input"
+          inputmode="decimal"
+          oninput="onlyFloatDot(this);"
+        />
+      `;
+    }
+
+    if (f.name === "Sample Type") {
+      html += `
+        <label>Sample Type</label>
+        <select id="${key}" class="input">
+          ${f.options.map(opt => `<option value="${opt}">${opt}</option>`).join("")}
+        </select>
+      `;
+    }
+
+  });
+
+  html += `</div>`;
+}
+
+
 // ====================== HBA1c TEST ======================
 else if (isHBA(test)) {
 
@@ -403,14 +1145,56 @@ else if (isHBA(test)) {
 
   test.fields.forEach(f => {
 
-    // ✅ SUB HEADING (ELECTROLYTES)
     if (f.sub) {
       html += `
         <div class="full-row sub-heading">
           ${f.sub}
         </div>
       `;
-      return; // 🔥 important: input mat banao
+      return;
+    }
+
+    const key = makeKey(testKey, f.name);
+    const isAuto = f.name.includes("Estimated");
+
+    html += `
+      <label>${f.name}</label>
+     <input
+  type="text"
+  class="input full-row hba-input ${isAuto ? "auto-field" : ""}"
+  id="${key}"
+  inputmode="decimal"
+  oninput="
+    onlyFloatDot(this);
+    ${isAuto ? `this.dataset.manual='true'` : `autoCalculateHBA('${testKey}')`}
+  "
+/>
+    `;
+  });
+
+  html += `</div>`;
+
+  setTimeout(() => {
+    bindHBAEvents(testKey);
+    autoCalculateHBA(testKey);
+  }, 0);
+}
+
+// ====================== IRON PROFILE TEST ======================
+else if (isIRON(test)) {
+
+  html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
+
+  test.fields.forEach(f => {
+
+    // ✅ SUB HEADING (agar future me add karo)
+    if (f.sub) {
+      html += `
+        <div class="full-row sub-heading">
+          ${f.sub}
+        </div>
+      `;
+      return;
     }
 
     const key = makeKey(testKey, f.name);
@@ -428,6 +1212,84 @@ else if (isHBA(test)) {
 
   html += `</div>`;
 }
+/* ================= CALCIUM & PHOSPHORUS ================= */
+else if (isCALPHOS(test)) {
+
+  html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+
+    html += `
+      <label>${f.name}</label>
+      <input
+        type="text"
+        class="input full-row lft-input"
+        id="${key}"
+        inputmode="decimal"
+      />
+    `;
+  });
+
+  html += `</div>`;
+}
+
+
+
+/* ================= VITD ================= */
+else if (isVITD(test)) {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.subtitle}</h5>
+    <div class="grid">
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.key);
+
+    html += `
+      <label>${f.name}</label>
+      <input
+        type="text"
+        class="input full-row lft-input"
+        id="${key}"
+        inputmode="decimal"
+      />
+    `;
+  });
+
+  html += `</div>`;
+}
+
+
+/* ================= THYROID 2 ================= */
+else if (isTHYROID2(test)) {
+
+  html += `
+    <h5 class="mt-3 mb-2">${test.subtitle}</h5>
+    <div class="grid">
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.key);
+
+    html += `
+      <label>${f.name}</label>
+      <input
+        type="text"
+        class="input full-row lft-input"
+        id="${key}"
+        inputmode="decimal"
+      />
+    `;
+  });
+
+  html += `</div>`;
+}
+
 // ====================== SERUM CALCIUM ======================
 else if (isSRCAL(test)) {
 
@@ -460,8 +1322,8 @@ else if (isSRCAL(test)) {
 
   html += `</div>`;
 }
-// ====================== BIOCHEMISTRY : KIDNEY FUNCTION TEST ======================
-else if (isKFT(test)) {
+// ====================== SERUM CALCIUM ======================
+else if (isCARDP(test)) {
 
   html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
 
@@ -491,6 +1353,48 @@ else if (isKFT(test)) {
   });
 
   html += `</div>`;
+}
+// ====================== BIOCHEMISTRY : KIDNEY FUNCTION TEST ======================
+// ====================== BIOCHEMISTRY : KIDNEY FUNCTION TEST ======================
+else if (isKFT(test)) {
+
+  html += `<h5 class="mt-3 mb-2">${test.subtitle}</h5><div class="grid">`;
+
+  test.fields.forEach(f => {
+
+    if (f.sub) {
+      html += `
+        <div class="full-row sub-heading">
+          ${f.sub}
+        </div>
+      `;
+      return;
+    }
+
+    const key = makeKey(testKey, f.name);
+    const isAuto = f.name === "BUN";
+
+    html += `
+      <label>${f.name}</label>
+      <input
+  type="text"
+  class="input full-row kft-input ${isAuto ? "auto-field" : ""}"
+  id="${key}"
+  inputmode="decimal"
+  oninput="
+    onlyFloatDot(this);
+    ${isAuto ? `this.dataset.manual='true'` : `autoCalculateKFT('${testKey}')`}
+  "
+/>
+    `;
+  });
+
+  html += `</div>`;
+
+  setTimeout(() => {
+    bindKFTEvents(testKey);
+    autoCalculateKFT(testKey);
+  }, 0);
 }
 // ====================== COAGULATION TEST ======================
 else if (isCOAGU(test)) {
@@ -499,32 +1403,52 @@ else if (isCOAGU(test)) {
 
   test.fields.forEach(f => {
 
-    // ✅ SUB HEADING (ELECTROLYTES)
     if (f.sub) {
       html += `
         <div class="full-row sub-heading">
           ${f.sub}
         </div>
       `;
-      return; // 🔥 important: input mat banao
+      return;
     }
 
     const key = makeKey(testKey, f.name);
+    const lname = f.name.toLowerCase();
+
+    const isTrigger =
+      lname.includes("patient value (pt)") ||
+      lname.includes("control value (ct)") ||
+      lname.includes("i.s.i") ||
+      lname.includes("aptt patient") ||
+      lname.includes("aptt control");
+
+    const isOutput =
+      lname.includes("prothrombin index") ||
+      lname.includes("prothrombin ratio") ||
+      lname.includes("international normalised ratio") ||
+      lname.includes("aptt ratio");
+
+    const isPlatelet =
+      lname.includes("platelet");
 
     html += `
       <label>${f.name}</label>
-      <input
-        type="text"
-        class="input full-row lft-input"
-        id="${key}"
-        inputmode="decimal"
-      />
+     <input
+  type="text"
+  class="input full-row ${isOutput ? "auto-field" : ""}"
+  id="${key}"
+  inputmode="${isPlatelet ? "numeric" : "decimal"}"
+  oninput="
+    ${isPlatelet ? "onlyIntWithComma(this);" : "onlyFloatDot(this);"}
+    ${isTrigger ? `autoCalculateCoagulation('${testKey}');` : ""}
+    ${isOutput ? `this.dataset.manual='true';` : ""}
+  "
+/>
     `;
   });
 
   html += `</div>`;
 }
-
    
    // ====================== SEROLOGY : ALL TEST (FORM) ===============
    // ====================== SEROLOGY : MULTI CHECKBOX FORM =========
@@ -697,6 +1621,26 @@ else if (test.fields && !isCRP(test)) {
 
   const lname = fieldName.toLowerCase();
 
+  // 🔥 BLOOD GROUP SELECT FIELD
+// 🔥 BLOOD GROUP SELECT FIELD
+if (fieldName === "BLOOD GROUP & RH TYPE") {
+  return `
+    <label>${fieldName}</label>
+    <select class="input full-row" id="${key}">
+      <option value="">Select</option>
+      <option value="'A' Rh POSITIVE">'A' Rh POSITIVE</option>
+      <option value="'A' Rh NEGATIVE">'A' Rh NEGATIVE</option>
+      <option value="'B' Rh POSITIVE">'B' Rh POSITIVE</option>
+      <option value="'B' Rh NEGATIVE">'B' Rh NEGATIVE</option>
+      <option value="'AB' Rh POSITIVE"'>'AB' Rh POSITIVE</option>
+      <option value="'AB' Rh NEGATIVE"'>'AB' Rh NEGATIVE</option>
+      <option value="'O' Rh POSITIVE">'O' Rh POSITIVE</option>
+      <option value="'O' Rh NEGATIVE">'O' Rh NEGATIVE</option>
+      <option value="OTHER">OTHER</option>
+    </select>
+  `;
+}
+
   if (isCommaField(lname)) {
     return `
       <label>${fieldName}</label>
@@ -708,51 +1652,89 @@ else if (test.fields && !isCRP(test)) {
     `;
   }
 
-  return `
-    <label>${fieldName}</label>
-    <input type="text"
-           class="input full-row"
-           id="${key}"
-           inputmode="decimal"
-           oninput="onlyFloatDot(this)">
-  `;
+const isBasophil = lname.includes("basophil");
+const isDLC =
+  lname.includes("neutro") ||
+  lname.includes("lymph") ||
+  lname.includes("eosino") ||
+  lname.includes("mono");
+
+ const isRBCTrigger =
+  lname.includes("haemoglobin") ||
+  lname.includes("hct") ||
+  lname.includes("rbc");
+
+const isRBCIndex =
+  lname === "mcv" ||
+  lname === "mch" ||
+  lname === "mchc";
+
+return `
+  <label>${fieldName}</label>
+ <input type="text"
+ class="input full-row 
+${isDLC ? "dlc-input" : ""} 
+${isBasophil ? "auto-field baso-input" : ""} 
+${isRBCIndex ? "auto-field" : ""}"
+ id="${key}"
+ inputmode="decimal"
+ oninput="
+   onlyFloatDot(this);
+   ${isDLC ? "autoCalculateBasophils();" : ""}
+   ${isRBCTrigger ? "autoCalculateRBCIndices();" : ""}
+   ${(isBasophil || isRBCIndex) ? "this.dataset.manual='true';" : ""}
+ ">
+`;
 }
 
 
 
-    // ====================== URINE ANALYSIS FIELDS ======================
-    if (test.title.toLowerCase().includes("urine")) {
-const fieldKey = makeKey(testKey, f[0]);
 
-      // If URINE.js field is defined as SELECT with options
-      if (typeof f[1] === "object" && f[1].type === "select") {
-        return `
-          <label>${f[0]}</label>
-          <select class="input full-row" id="${fieldKey}" onchange="toggleOther(this)">
-            ${f[1].options.map(opt =>
-              `<option value="${opt}">${opt}</option>`
-            ).join("")}
-            <option value="OTHER">Other</option>
-          </select>
-         <input
-  type="text"
-  class="input full-row"
-  id="${fieldKey}_other"
-  placeholder="Specify ${f[0]}"
-  style="display:none">
+// ====================== URINE ANALYSIS FIELDS ======================
+if (test.title.toLowerCase().includes("urine")) {
 
-        `;
-      }
+  const fieldKey = makeKey(testKey, f[0]);
 
-      // Text-type urine fields (Quantity, Nature, Reaction etc.)
-      return `
-        <label>${f[0]}</label>
-        <input type="text"
-               class="input full-row"
-               id="${fieldKey}"
-  value="${f[1]?.default || ""}">
-      `;
-    }
+  // 🔹 SELECT TYPE FIELD
+  if (typeof f[1] === "object" && f[1].type === "select") {
+
+    return `
+      <label>${f[0]}</label>
+
+      <select class="input full-row"
+              id="${fieldKey}"
+              onchange="toggleOther(this)">
+
+        <!-- Blank First Option -->
+        <option value=""></option>
+
+        ${f[1].options.map(opt =>
+          `<option value="${opt}">${opt}</option>`
+        ).join("")}
+
+        <option value="OTHER">Other</option>
+
+      </select>
+
+      <input
+        type="text"
+        class="input full-row"
+        id="${fieldKey}_other"
+        placeholder="Specify ${f[0]}"
+        style="display:none">
+    `;
+  }
+
+  // 🔹 TEXT TYPE FIELD
+  return `
+    <label>${f[0]}</label>
+    <input type="text"
+           class="input full-row"
+           id="${fieldKey}"
+           placeholder="${f[0]}"
+           value="${f[1]?.default || ""}">
+  `;
+}
 
     // ====================== PS FOR MP (HEMATOLOGY) ======================
 if (
@@ -795,6 +1777,33 @@ if (
              placeholder="${f[0]}">
     `;
   }
+
+ // ================= TROPONIN I SHOW CLIA =================
+document.addEventListener("change", (e) => {
+
+  if (!e.target.id.includes("TROPONIN_Test Type")) return;
+
+  const selected = e.target.value;
+
+  const wrapper = document.getElementById(
+    makeKey("TROPONIN", "Troponin I Plasma (CLIA)") + "_wrapper"
+  );
+
+  if (!wrapper) return;
+
+  if (selected === "TROPONIN I") {
+    wrapper.style.display = "block";
+  } else {
+    wrapper.style.display = "none";
+
+    const input = document.getElementById(
+      makeKey("TROPONIN", "Troponin I Plasma (CLIA)")
+    );
+
+    if (input) input.value = "";
+  }
+
+});
 
 // 🔒 SGOT hard lock (typing + paste + mobile safe)
 document.addEventListener("input", e => {
@@ -879,7 +1888,7 @@ document.addEventListener("change", e => {
   }
 });
 
-document.querySelectorAll("input").forEach(inp => {
+document.querySelectorAll("input, textarea").forEach(inp => {
   if (
     inp.id &&
     !inp.id.endsWith("_other") &&
