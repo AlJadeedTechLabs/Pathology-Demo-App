@@ -1,5 +1,7 @@
 import { supabase } from "./supabase.js";
-
+import Tests from "../tests/index.js";
+// console.log(test.class);
+const pdf = document.getElementById("pdf");
 async function getNextLRN(userId) {
 
   const { data, error } = await supabase
@@ -7,20 +9,75 @@ async function getNextLRN(userId) {
     .select("lrn")
     .eq("user_id", userId)
     .order("lrn", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
 
   if (error) {
     console.error(error);
     return 1;
   }
 
-  const maxLRN = data?.lrn || 0;
+  if (!data || data.length === 0) {
+    return 1;
+  }
 
-  return maxLRN + 1;
+  return data[0].lrn + 1;
+}
+
+async function loadLabImages(email) {
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("top_image,bg_image,bottom_image")
+    .eq("email",email)
+    .single();
+
+  if(error){
+    console.log(error);
+    return;
+  }
+
+  const page = document.querySelector(".page");
+  if(!page) return;
+
+  if(data.top_image){
+    page.style.setProperty("--lab-top",`url("${data.top_image}")`);
+  }
+
+  if(data.bottom_image){
+    page.style.setProperty("--lab-bottom",`url("${data.bottom_image}")`);
+  }
+
+  if(data.bg_image){
+    page.style.setProperty("--lab-bg",`url("${data.bg_image}")`);
+  }
+
 }
 
 
+/* ===== USER LOAD ===== */
+async function initLabImages() {
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  /* wait until page exists */
+  const waitPage = setInterval(() => {
+
+    const page = document.querySelector(".page");
+
+    if (page) {
+      clearInterval(waitPage);
+      loadLabImages(user.email);
+    }
+
+  }, 100);
+}
+
+initLabImages();
+// if(user){
+//   await loadLabImages(user.email);
+// }
 
 let generatedLRN = null;
 
@@ -46,7 +103,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("History preview LRN:", generatedLRN);
 
     // ✅ clear flag so next new report generates fresh LRN
-    // localStorage.removeItem("fromHistory");
+    localStorage.removeItem("fromHistory");
 
   } else {
 
@@ -68,18 +125,49 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
+// export async function saveReport(patientData, reportData, tests) {
+
+//   const { data: sessionData } = await supabase.auth.getSession();
+
+//   if (!sessionData.session) return;
+
+//   const userId = sessionData.session.user.id;
+
+//   // ✅ CRITICAL FIX: ALWAYS FETCH FRESH LRN FROM DB BEFORE INSERT
+//   const freshLRN = await getNextLRN(userId);
+
+//   // ✅ update global + patient also
+//   generatedLRN = freshLRN;
+//   patient.lrn = freshLRN;
+
+//   const { data, error } = await supabase
+//     .from("report_history")
+//     .insert({
+//       user_id: userId,
+//       patient: { ...patientData, lrn: freshLRN },
+//       report: reportData,
+//       tests: tests,
+//       lrn: freshLRN
+//     });
+
+//   if (error) {
+//     alert(error.message);
+//     return;
+//   }
+
+//   console.log("Saved LRN:", freshLRN);
+// }
+
 export async function saveReport(patientData, reportData, tests) {
 
   const { data: sessionData } = await supabase.auth.getSession();
-
-  if (!sessionData.session) return;
+  if (!sessionData.session) return { success: false };
 
   const userId = sessionData.session.user.id;
 
-  // ✅ CRITICAL FIX: ALWAYS FETCH FRESH LRN FROM DB BEFORE INSERT
-  const freshLRN = await getNextLRN(userId);
+  // const freshLRN = await getNextLRN(userId);
+  const freshLRN = generatedLRN;
 
-  // ✅ update global + patient also
   generatedLRN = freshLRN;
   patient.lrn = freshLRN;
 
@@ -91,16 +179,21 @@ export async function saveReport(patientData, reportData, tests) {
       report: reportData,
       tests: tests,
       lrn: freshLRN
-    });
+    })
+    .select(); // 🔥 ADD THIS (important for confirmation)
 
   if (error) {
     alert(error.message);
-    return;
+    return { success: false };
   }
 
-  console.log("Saved LRN:", freshLRN);
-}
+  if (data && data.length > 0) {
+    console.log("Saved LRN:", freshLRN);
+    return { success: true, lrn: freshLRN };
+  }
 
+  return { success: false };
+}
 
 
 
@@ -641,9 +734,18 @@ if (combinedTableOpen) {
 
 
 
-import Tests from "../tests/index.js";
 
-function checkFlag(result, refList, gender) {
+
+function checkFlag(result, refList, gender, age)
+ {
+
+   result = String(result || "");
+  if (!Array.isArray(refList)) return { flag: "" };
+
+  refList = refList.filter(r => typeof r === "string");
+
+  if (!refList.length) return { flag: "" };
+  
   if (!result || !refList || refList.length === 0) {
     return { flag: "" };
   }
@@ -651,8 +753,88 @@ function checkFlag(result, refList, gender) {
   const value = parseFloat(String(result).replace(/,/g, ""));
   if (isNaN(value)) return { flag: "" };
 
-  /* 🔥 ref ko jaisa aaye waisa hi combine */
+    /* 🔥 ref ko jaisa aaye waisa hi combine */
   let ref = refList.join(" | ").trim();
+
+  /* ===================================================
+   🔥 STEP X: AGE BASED RANGE SELECTOR
+=================================================== */
+
+const ageNum = parseInt(age);
+
+/* ===============================================
+   🔥 NEW FORMAT: 80 - 253 : 1 Yr - 10 Yr
+================================================ */
+
+if (!isNaN(ageNum) && /:\s*\d+\s*Yr/i.test(ref)) {
+
+  const lines = ref.split("\n").map(l => l.trim());
+
+  for (let line of lines) {
+
+    // 80 - 253 : 1 Yr - 10 Yr
+    let match = line.match(/([\d.]+\s*-\s*[\d.]+)\s*:\s*(\d+)\s*Yr\s*-\s*(\d+)\s*Yr/i);
+    if (match) {
+      const range = match[1];
+      const minAge = parseInt(match[2]);
+      const maxAge = parseInt(match[3]);
+
+      if (ageNum >= minAge && ageNum <= maxAge) {
+        ref = range.trim();
+        break;
+      }
+    }
+
+    // 60 - 181 : > 18 years
+    match = line.match(/([\d.]+\s*-\s*[\d.]+)\s*:\s*>\s*(\d+)/i);
+    if (match) {
+      const range = match[1];
+      const minAge = parseInt(match[2]);
+
+      if (ageNum > minAge) {
+        ref = range.trim();
+        break;
+      }
+    }
+  }
+}
+
+
+if (!isNaN(ageNum) && /\d+\s*-\s*\d+\s*Years/i.test(ref)) {
+
+  const lines = ref.split("\n").map(l => l.trim());
+
+  for (let line of lines) {
+
+    // 4 - 11 Years: 8.6 - 37.7
+    let match = line.match(/(\d+)\s*-\s*(\d+)\s*Years\s*:\s*(.+)/i);
+    if (match) {
+      const minAge = parseInt(match[1]);
+      const maxAge = parseInt(match[2]);
+      const range = match[3];
+
+      if (ageNum >= minAge && ageNum <= maxAge) {
+        ref = range.trim();
+        break;
+      }
+    }
+
+    // >60 Years: 5.6 - 45.8
+    match = line.match(/>\s*(\d+)\s*Years\s*:\s*(.+)/i);
+    if (match) {
+      const minAge = parseInt(match[1]);
+      const range = match[2];
+
+      if (ageNum > minAge) {
+        ref = range.trim();
+        break;
+      }
+    }
+  }
+}
+
+
+
 
   /* ===================================================
      🔥 STEP 1: NORMALIZE GENDER
@@ -739,7 +921,22 @@ function checkFlag(result, refList, gender) {
     return { flag: "" };
   }
 
+  /* ===================================================
+     🔥 LIPID SPECIAL: Goal < 130 (High Risk > 130)
+  =================================================== */
 
+  if (/goal\s*</i.test(ref) && /high\s*risk\s*>/i.test(ref)) {
+
+    // Goal < 130
+    let goalMatch = ref.match(/<\s*([\d.]+)/);
+    if (goalMatch) {
+      const max = parseFloat(goalMatch[1]);
+      if (value >= max) {
+        return { flag: "H" };  // High risk
+      }
+      return { flag: "" };
+    }
+  }
   /* ================= RANGE: min - max ================= */
   let match = ref.match(/(\d+[\d.]*)\s*-\s*(\d+[\d.]*)/);
   if (match) {
@@ -754,7 +951,8 @@ function checkFlag(result, refList, gender) {
 
   
   /* ================= RANGE: Upto ================= */
-  match = ref.match(/upto\s*-?\s*([\d.]+)/i);
+  // match = ref.match(/upto\s*-?\s*([\d.]+)/i);
+  match = ref.match(/^\s*upto\s*-?\s*([\d.]+)/i);
   if (match) {
     const max = parseFloat(match[1]);
     if (value > max) return { flag: "H" };
@@ -779,7 +977,7 @@ const patient = JSON.parse(localStorage.getItem("patient"));
 const report = JSON.parse(localStorage.getItem("report"));
 const selectedTests = JSON.parse(localStorage.getItem("tests")) || [];
 
-const pdf = document.getElementById("pdf");
+
 
 let page, testsBox;
 
@@ -872,7 +1070,7 @@ content.id = "page-content";
   footer.innerHTML = `
     <div class="footer-line"></div>
     <div class="footer-text">
-      P.NO - 1 ***YOUR BLOOD CLINICAL LABORATORY, YOUR CITY NAME ***
+      P.NO - 1 ***ADVANCE BLOOD CLINICAL LABORATORY, WADNER BHOLJI ***
     </div>
     <div class="footer-thanks">"Thanks for Referral"</div>
   `;
@@ -903,7 +1101,19 @@ window.crpHeaderPrinted = false;
 
 /* ================= TEST RENDERER ================= */
 function renderTest(testKey) {
-  const test = Tests[testKey];
+
+// const reportData = JSON.parse(localStorage.getItem("report")) || {};
+  // const test = Tests[testKey];
+
+  const test = Array.isArray(Tests)
+  ? Tests.find(t => t.key === testKey)
+  : Tests[testKey];
+
+if (!test) {
+  console.error("Test not found:", testKey);
+  return;
+}
+
   let html = `<table><tbody>`;
 
   /* ================= CBC TYPE ================= */
@@ -930,6 +1140,8 @@ function renderTest(testKey) {
      const fieldKey = makeKey(testKey, f[0]);
 
       const result = report[fieldKey] || "";
+
+      if (!result) return;
 
      let flagHTML = "";
 let rowClass = "";
@@ -958,20 +1170,185 @@ if (result && f[2]) {
 
 
           <td class="td-unit">${f[1]}</td>
-          <td class="td-ref">
-  ${f[2].split("|").map(r => `<div>${r.trim()}</div>`).join("")}
+
+        
+
+<td class="td-ref">
+  ${f[2].replace(/\|/g, " | ")}
 </td>
 
         </tr>
       `;
     });
+
+//       <td class="td-ref">
+//   ${f[2].split("|").map(r => `<div>${r.trim()}</div>`).join("")}
+// </td>
   }
 
+  // ====================== PREVIEW troponin ======================
+// ====================== PREVIEW troponin ======================
+else if (test.class === "TROPONIN") {
+
+  let hasAnyData = false;
+
+  // 🔎 First check: koi bhi section me data hai kya?
+  test.sections.forEach(section => {
+    const hasData = section.fields.some(f => {
+      if (f.type === "heading") return false;
+      const key = makeKey(testKey, f.name);
+      return report[key] && report[key] !== "";
+    });
+
+    if (hasData) hasAnyData = true;
+  });
+
+  if (!hasAnyData) return; // ❌ agar pura test empty hai toh skip
+
+  /* ================= MAIN TITLE (ONLY ONCE) ================= */
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+    <tr class="test-head">
+      <th>INVESTIGATION</th>
+      <th>RESULT</th>
+      <th>UNIT</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+  `;
+
+  /* ================= LOOP SECTIONS ================= */
+  test.sections.forEach(section => {
+
+    const hasData = section.fields.some(f => {
+      if (f.type === "heading") return false;
+      const key = makeKey(testKey, f.name);
+      return report[key] && report[key] !== "";
+    });
+
+    if (!hasData) return; // skip empty section
+
+    /* 🔹 Section Title */
+    // html += `
+    //   <tr>
+    //     <td colspan="4" class="sub-main-heading">
+    //       ${section.title}
+    //     </td>
+    //   </tr>
+    // `;
+
+    section.fields.forEach(f => {
+
+      if (f.type === "heading") return;
+
+      const key = makeKey(testKey, f.name);
+      const result = report[key];
+      if (!result) return;
+
+      let flagHTML = "";
+let rowClass = "";
+
+if (result && f.ref) {
+  const { flag } = checkFlag(
+    result,
+    [f.ref],
+    patient?.gender || ""
+  );
+
+  if (flag) {
+    flagHTML = ` <span class="flag shift-flag">${flag}</span>`;
+    rowClass = "abnormal-value";
+  }
+}
+
+      html += `
+        <tr>
+          <td>${f.name}</td>
+         <td class="td-result ${rowClass}">
+  <span class="result-value">${result}</span>
+  ${flagHTML}
+</td>
+          <td>${f.unit || ""}</td>
+          <td>${f.ref || ""}</td>
+        </tr>
+      `;
+    });
+
+  });
+
+  /* ================= TROPO I EXTRA CONTENT ================= */
+
+  const hasTroponinI = test.sections[1]?.fields.some(f => {
+    if (f.type === "heading") return false;
+    const key = makeKey(testKey, f.name);
+    return report[key] && report[key] !== "";
+  });
+
+  if (hasTroponinI) {
+
+    html += `
+      <tr>
+        <td colspan="4" class="section-divider"></td>
+      </tr>
+
+      <tr>
+        <td colspan="4" class="small-title">
+          ONE STEP Troponin I-TEST
+        </td>
+      </tr>
+    `;
+
+    if (test.note) {
+      html += `
+        <tr>
+          <td colspan="4" class="text-block" style="font-size:12px;    text-align: justify;">
+            ${test.note}
+          </td>
+        </tr>
+      `;
+    }
+
+    if (test.comments) {
+      html += `
+        <tr>
+          <td colspan="4" class="text-block"style="font-size:12px;    text-align: justify;">
+            <strong>COMMENTS</strong><br>
+            ${test.comments}
+          </td>
+        </tr>
+      `;
+    }
+
+    if (test.increasedLevels) {
+      html += `
+        <tr>
+          <td colspan="4" class="text-block"style="font-size:12px;    text-align: justify;">
+            <strong>INCREASED LEVELS</strong><br>
+            ${test.increasedLevels}
+          </td>
+        </tr>
+      `;
+    }
+
+    if (test.uses) {
+      html += `
+        <tr>
+          <td colspan="4" class="text-block"style="font-size:12px;    text-align: justify;">
+            <strong>USES</strong><br>
+            ${test.uses.replace(/\n/g, "<br>")}
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+/* ================= BIOCHEMISTRY / SUGAR ================= */
 /* ================= BIOCHEMISTRY / SUGAR ================= */
 else if (test.title === "BIOCHEMISTRY REPORT" && test.subtitle && !test.class) {
 
-  // 🔎 at least one value entered
   const hasAnyValue = test.fields.some(f => {
+    if (!f.name) return false;
     const k = makeKey(testKey, f.name);
     return report[k] && report[k] !== "";
   });
@@ -985,83 +1362,267 @@ else if (test.title === "BIOCHEMISTRY REPORT" && test.subtitle && !test.class) {
       <th>UNIT</th>
       <th>REFERENCE RANGE</th>
     </tr>
-  `;
-
-  if (test.subtitle) {
-  html += `
     <tr class="subtitle-row">
-      <td class="subtitle-cell" style="
-    font-weight: 600;
-">${test.subtitle}</td>
-
+      <td class="subtitle-cell" style="font-weight:600;">
+        ${test.subtitle}
+      </td>
       <td></td>
       <td></td>
       <td></td>
     </tr>
   `;
-}
-
-const postUrineKey = makeKey(testKey, "BLOOD SUGAR POSTMEAL");
-const hasPostUrineValue = report[postUrineKey] && report[postUrineKey] !== "";
-
 
   test.fields.forEach(f => {
+
+    // ❌ SECTION preview me nahi dikhana
+    if (f.section) return;
+
+    // ✅ SUB LABEL (exact jagah)
+   // ✅ SUB LABEL — only after POSTMEAL blood row
+if (f.sub) {
+
+  const postMealKey = makeKey(testKey, "BLOOD SUGAR POSTMEAL");
+  const hasPostMealValue = report[postMealKey] && report[postMealKey] !== "";
+
+  if (hasPostMealValue) {
+    html += `
+      <tr class="sub-row">
+        <td colspan="4" style="padding-left:15px; font-weight:600;">
+          ${f.sub}
+        </td>
+      </tr>
+    `;
+  }
+
+  return;
+}
+
+    if (!f.name) return;
+
     const fieldKey = makeKey(testKey, f.name);
     const result = report[fieldKey];
 
-    // 🔹 skip if empty AND no sub
-    if (!result && !f.sub) return;
-
-    // ✅ Sub-label first (AFTER 1 & 1/2 HOURS)
-   if (f.sub && hasPostUrineValue) {
-  html += `
-    <tr class="sub-row">
-      <td colspan="4" class="sub-label" style="padding-left:7%">${f.sub}</td>
-    </tr>
-  `;
-}
-
-
-    // 🔹 skip field if no value
     if (!result) return;
 
     const isUrine = f.name.toUpperCase().includes("URINE");
 
-    let rowClass = "";
+    let resultClass = "";
     let flagHTML = "";
 
-   let resultClass = "";
+    // ✅ SAME OLD URINE LOGIC
+    if (isUrine) {
+      const val = String(result).trim().toUpperCase();
+      resultClass = val === "ABSENT" ? "normal-value" : "abnormal-value";
+    }
 
-if (isUrine) {
-  const val = String(result).trim().toUpperCase();
-  resultClass = val === "ABSENT" ? "normal-value" : "abnormal-value";
-} 
-else if (f.ref) {
-  const { flag } = checkFlag(result, [f.ref], patient.gender);
-  if (flag) {
-    resultClass = "abnormal-value";
-    flagHTML = `<span class="flag shift-flag">${flag}</span>`;
-  }
-}
+    // ✅ SAME OLD FLAG FUNCTION (UNCHANGED)
+    else if (f.ref) {
+      const { flag } = checkFlag(result, [f.ref], patient.gender);
+      if (flag) {
+        resultClass = "abnormal-value";
+        flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+      }
+    }
 
+    // remove (FASTING) etc from preview
+    const cleanName = f.name.replace(/\(.*?\)/g, "").trim();
 
-    // ✅ Main field row
-   html += `
-  <tr class="test-row">
-    <td>${f.name}</td>
-    <td class="td-result">
-      <span class="result-value ${resultClass}">${result}</span>
-      ${flagHTML}
-    </td>
-    <td class="td-unit">${f.unit || ""}</td>
-    <td class="td-ref">${f.ref || "Nil"}</td>
-  </tr>
-`;
+    html += `
+      <tr class="test-row">
+        <td style="${isUrine ? "padding-left:25px;" : "padding-left:0;"}">
+          ${cleanName}
+        </td>
+        <td class="td-result">
+          <span class="result-value ${resultClass}">
+            ${result}
+          </span>
+          ${flagHTML}
+        </td>
+        <td class="td-unit">
+          ${isUrine ? "" : (f.unit || "")}
+        </td>
+        <td class="td-ref">
+          ${f.ref || "Nil"}
+        </td>
+      </tr>
+    `;
 
   });
 }
+// ====================== PREVIEW : SICKLING ======================
+else if (test.class === "SICKLING") {
 
+  const hasAnyValue = test.fields.some(f => {
+    const key = makeKey(testKey, f.name);
+    return report[key] && report[key] !== "";
+  });
 
+  if (!hasAnyValue) return "";
+
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+    <tr class="test-head">
+      <th>INVESTIGATION</th>
+      <th>RESULT</th>
+      <th></th>
+      <th></th>
+    </tr>
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+    const timeKey = makeKey(testKey, f.name + "_TIME");
+
+    const result = report[key];
+    const timeValue = report[timeKey];
+
+    if (!result) return;
+
+    html += `
+      <tr class="test-row">
+        <td>
+          SICKLING - ${f.name} -
+        </td>
+        <td class="td-result">
+          <span class="result-value">
+            ${result}
+          </span>
+        </td>
+        <td>
+          ${timeValue ? `( After ${timeValue} hrs )` : ""}
+        </td>
+        <td></td>
+      </tr>
+    `;
+  });
+}
+// ====================== PREVIEW : COOMBS TEST ======================
+else if (test.class === "COOMBS TEST") {
+
+  const hasAnyValue = test.fields.some(f => {
+    const key = makeKey(testKey, f.name);
+    return report[key] && report[key] !== "";
+  });
+
+  if (!hasAnyValue) return "";
+
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+    <tr class="test-head">
+      <th>INVESTIGATION</th>
+      <th>RESULT</th>
+      <th></th>
+      <th></th>
+    </tr>
+  `;
+
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+    const result = report[key];
+
+    if (!result) return;   // ✅ Only selected row show hogi
+
+    html += `
+      <tr class="test-row">
+        <td>${f.name}</td>
+        <td class="td-result">
+          <span class="result-value">
+            ${result}
+          </span>
+        </td>
+        <td></td>
+        <td></td>
+      </tr>
+    `;
+  });
+}
+// ====================== PREVIEW : BGA ======================
+else if (test.class === "BGA") {
+
+  // ✅ check at least one valid value (0 allowed)
+  const hasAnyValue = test.fields.some(f => {
+    if (!f.name) return false;
+    const key = makeKey(testKey, f.name);
+    const value = report[key];
+    return value !== undefined && value !== null && value !== "";
+  });
+
+  if (!hasAnyValue) return "";
+
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+    <tr class="test-head">
+      <th>INVESTIGATION</th>
+      <th>RESULT</th>
+      <th>UNIT</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+  `;
+
+  test.fields.forEach(f => {
+
+    // ✅ Section row
+    if (f.section) {
+      html += `
+        <tr class="sub-row">
+          <td colspan="4" style="font-weight:600; padding-top:10px;">
+            ${f.section}
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    if (!f.name) return;
+
+    const key = makeKey(testKey, f.name);
+    const result = report[key];
+
+    // ✅ Allow 0
+    if (result === undefined || result === null || result === "") return;
+
+    let resultClass = "";
+    let flagHTML = "";
+
+    // ✅ Run flag only if reference exists
+    if (f.ref && f.ref.trim() !== "") {
+
+      const { flag } = checkFlag(
+        result,
+        [f.ref],
+        patient?.gender || "",
+        patient?.age || ""
+      );
+
+      if (flag) {
+        resultClass = "abnormal-value";
+        flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+      }
+    }
+
+    html += `
+      <tr class="test-row">
+        <td>${f.name}</td>
+        <td class="td-result">
+          <span class="result-value ${resultClass}">
+            ${result}
+          </span>
+          ${flagHTML}
+        </td>
+        <td>${f.unit || ""}</td>
+        <td>${f.ref || ""}</td>
+      </tr>
+    `;
+  });
+}
 /* ================= LIVER FUNCTION TEST ================= */
 else if (test.class === "LIVER FUNCTION TEST") {
 
@@ -1156,7 +1717,7 @@ else if (test.class === "LIPID REPORT") {
     let rowClass = "";
 
     if (f.ref) {
-      const { flag } = checkFlag(result, [f.ref], patient.gender);
+     const { flag } = checkFlag(result, [f.ref], patient.gender, patient.age);
       if (flag) {
         flagHTML = `<span class="flag shift-flag">${flag}</span>`;
         rowClass = "abnormal-value";
@@ -1206,11 +1767,12 @@ else if (test.class === "KIDNEY FUNCTION TEST") {
     window.kidneyHeaderPrinted = true;
   }
 
-  const electrolyteFields = [
-  "SR. SODIUM",
-  "SR. POTASSIUM",
-  "SR. IONIC CALCIUM",
-  "SR. CHLORIDE"
+ const electrolyteFields = [
+  "SERUM SODIUM",
+  "SERUM POTASSIUM",
+  "SERUM CHLORIDE",
+  "SERUM BICARBONATE",
+  "IONIC CALCIUM"
 ];
 
 const hasElectrolyteValue = electrolyteFields.some(name => {
@@ -1305,50 +1867,65 @@ const hasPROTHROMBINeValue = PROTHROMBINFields.some(name => {
   return report[k] && report[k] !== "";
 });
 
-  test.fields.forEach(f => {
+for (let i = 0; i < test.fields.length; i++) {
+  const f = test.fields[i];
 
+  // ===== SUB HEADING =====
   if (f.sub) {
-  if (!hasPROTHROMBINeValue) return;
 
-  html += `
-    <tr class="bio-sub-row">
-      <td colspan="4" class="bio-sub-left" style="font-weight:700;">
-        ${f.sub}
-      </td>
-    </tr>
-  `;
-  return;
-}
+    // 🔥 Check next fields until next sub heading
+    let hasSubValue = false;
 
+    for (let j = i + 1; j < test.fields.length; j++) {
+      if (test.fields[j].sub) break;
 
-
-    const key = makeKey(testKey, f.name);
-    const result = report[key];
-    if (!result) return;
-
-    let flagHTML = "";
-    let rowClass = "";
-
-    if (f.ref) {
-      const { flag } = checkFlag(result, [f.ref], patient.gender);
-      if (flag) {
-        flagHTML = `<span class="flag shift-flag">${flag}</span>`;
-        rowClass = "abnormal-value";
+      const k = makeKey(testKey, test.fields[j].name);
+      if (report[k]) {
+        hasSubValue = true;
+        break;
       }
     }
 
+    if (!hasSubValue) continue;
+
     html += `
-      <tr class="test-row">
-        <td>${f.name}</td>
-        <td class="td-result ${rowClass}">
-          <span class="result-value">${result}</span>
-          ${flagHTML}
+      <tr class="bio-sub-row">
+        <td colspan="4" class="bio-sub-left" style="font-weight:700;">
+          ${f.sub}
         </td>
-        <td class="td-unit">${f.unit}</td>
-        <td class="td-ref">${f.ref}</td>
       </tr>
     `;
-  });
+    continue;
+  }
+
+  // ===== NORMAL FIELD =====
+  const key = makeKey(testKey, f.name);
+  const result = report[key];
+  if (!result) continue;
+
+  let flagHTML = "";
+  let rowClass = "";
+
+  if (f.ref) {
+    const { flag } = checkFlag(result, [f.ref], patient.gender);
+    if (flag) {
+      flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+      rowClass = "abnormal-value";
+    }
+  }
+
+  html += `
+    <tr class="test-row">
+      <td>${f.name}</td>
+      <td class="td-result ${rowClass}">
+        <span class="result-value">${result}</span>
+        ${flagHTML}
+      </td>
+      <td class="td-unit">${f.unit}</td>
+      <td class="td-ref">${f.ref}</td>
+    </tr>
+  `;
+};
 }
 /* ================= HEMATOLOGY : ESR ================= */
 else if (test.class === "HEMATOLOGYESR") {
@@ -1502,32 +2079,286 @@ else if (test.class === "GHb/HBA1c") {
   }
 }
 
-/* ================= SERUM CALCIUM ================= */
-/* ================= SERUM CALCIUM ================= */
+/* ================= IRON PROFILE ================= */
+else if (test.class === "IRON PROFILE") {
+
+  const hasValue = test.fields.some(f => {
+    const k = makeKey(testKey, f.key || f.name);
+    return report[k];
+  });
+  if (!hasValue) return "";
+
+  /* ===== TITLE ===== */
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+  `;
+
+  /* ===== TABLE HEAD ===== */
+  html += `
+    <tr class="test-head">
+      <th>TEST DESCRIPTION</th>
+      <th>RESULT</th>
+      <th>UNITS</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+  `;
+
+  /* ===== SUBTITLE ===== */
+  if (test.subtitle) {
+    html += `
+      <tr class="bio-subtitle">
+        <th colspan="4">${test.subtitle}</th>
+      </tr>
+    `;
+  }
+
+ 
+/* ===== FIELDS (FROM iron.js) ===== */
+test.fields.forEach(f => {
+
+  const key = makeKey(testKey, f.key || f.name);
+  const result = report[key];
+  if (!result) return;
+
+  let flagHTML = "";
+  let rowClass = "";
+
+  if (f.ref) {
+    const { flag } = checkFlag(result, [f.ref]);
+    if (flag) {
+      flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+      rowClass = "abnormal-value";
+    }
+  }
+
+  /* ===== MAIN RESULT ROW ===== */
+  html += `
+    <tr class="test-row">
+      <td>${f.name}</td>
+      <td class="td-result ${rowClass}">
+        <span class="result-value">${result}</span>
+        ${flagHTML}
+      </td>
+      <td>${f.unit || ""}</td>
+      <td class="td-ref">${f.ref || ""}</td>
+    </tr>
+  `;
+
+  /* ===== METHOD ROW (Separate, Clean) ===== */
+  if (f.method) {
+    html += `
+      <tr class="method-row">
+        <td colspan="4" style="padding:2px 6px; font-size:12px; color:#555;">
+          ${f.method}
+        </td>
+      </tr>
+    `;
+  }
+
+});
+
+
+
+ /* ===== AFTER SECTION (Proper Single Table) ===== */
+if (Array.isArray(test.after) && test.after.length) {
+
+  const headerIndex = test.after.findIndex(line =>
+    line.includes("Disease |")
+  );
+
+  html += `
+    <tr>
+      <td colspan="4" style="padding-top:6px">
+  `;
+
+  test.after.forEach((line, index) => {
+
+    // Plain text lines (Interpretation etc.)
+    if (!line.includes("|")) {
+      html += `
+        <div style="line-height:1.4; padding-top:4px;">
+          ${line}
+        </div>
+      `;
+    }
+
+    // Header line -> start table
+    if (index === headerIndex) {
+
+      const headers = line.split("|").map(c => c.trim());
+
+      html += `
+        <table style="width:100%; border-collapse:collapse; font-size:14px; margin-top:6px;">
+          <tr style="background:#f2f2f2; font-weight:bold;">
+            ${headers.map(h =>
+              `<th style="border:1px solid #000; padding:4px;">${h}</th>`
+            ).join("")}
+          </tr>
+      `;
+    }
+
+    // Data rows (after header)
+    if (index > headerIndex && line.includes("|")) {
+
+      const cols = line.split("|").map(c => c.trim());
+
+      html += `
+        <tr>
+          ${cols.map(c =>
+            `<td style="border:1px solid #000; padding:4px;">${c}</td>`
+          ).join("")}
+        </tr>
+      `;
+    }
+
+  });
+
+  // Close table
+  if (headerIndex !== -1) {
+    html += `</table>`;
+  }
+
+  html += `
+      </td>
+    </tr>
+  `;
+}
+
+}
+
+/* ================= CALCIUM & PHOSPHORUS ================= */
+else if (test.class === "CALCIUM & PHOSPHORUS") {
+
+  const hasValue = test.fields.some(f => {
+    const k = makeKey(testKey, f.name);
+    return report[k];
+  });
+  if (!hasValue) return "";
+
+  /* ===== TITLE ===== */
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+  `;
+
+  /* ===== TABLE HEAD ===== */
+  html += `
+    <tr class="test-head">
+      <th>TEST DESCRIPTION</th>
+      <th>RESULT</th>
+      <th>UNITS</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+  `;
+
+  /* ===== SUBTITLE ===== */
+  html += `
+    <tr class="bio-subtitle">
+      <th colspan="4">${test.subtitle}</th>
+    </tr>
+  `;
+
+  /* ===== FIELDS ===== */
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.name);
+    const result = report[key];
+    if (!result) return;
+
+    let flagHTML = "";
+    let rowClass = "";
+
+    if (f.ref) {
+      const { flag } = checkFlag(result, [f.ref]);
+      if (flag) {
+        flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+        rowClass = "abnormal-value";
+      }
+    }
+
+    /* Main Row */
+    html += `
+      <tr class="test-row">
+        <td>${f.name}</td>
+        <td class="td-result ${rowClass}">
+          <span class="result-value">${result}</span>
+          ${flagHTML}
+        </td>
+        <td>${f.unit}</td>
+        <td>${f.ref}</td>
+      </tr>
+    `;
+
+    /* Method Row */
+    html += `
+      <tr class="method-row">
+        <td colspan="4" style="font-size:12px; padding:2px 6px; color:#555;">
+          ${f.method}
+        </td>
+      </tr>
+    `;
+  });
+
+  /* ===== INTERPRETATION ===== */
+  if (Array.isArray(test.after) && test.after.length) {
+
+    html += `
+      <tr>
+        <td colspan="4" style="padding-top:8px;">
+    `;
+
+    test.after.forEach(line => {
+      html += `
+        <div style="line-height:1.5; margin-bottom:4px;font-size:13.5px;">
+          ${line}
+        </div>
+      `;
+    });
+
+    html += `
+        </td>
+      </tr>
+    `;
+  }
+}
+
+
+/* ================= other BIOCHEM  ================= */
 else if (test.class === "SERUM CALCIUM") {
 
   const hasValue = test.fields.some(f => {
     const k = makeKey(testKey, f.key || f.name);
     return report[k];
   });
-
   if (!hasValue) return "";
 
+  /* ===== TITLE (only once) ===== */
   if (!window.esrHeaderPrinted) {
     html += `
       <tr class="test-title">
         <th colspan="4">${test.title}</th>
       </tr>
       <tr class="test-head">
-        <th>INVESTIGATION</th>
+        <th>TEST DESCRIPTION</th>
         <th>RESULT</th>
-        <th>UNIT</th>
+        <th>UNITS</th>
         <th>REFERENCE RANGE</th>
       </tr>
     `;
     window.esrHeaderPrinted = true;
   }
 
+  /* ===== SUBTITLE (single row like reference) ===== */
+  html += `
+    <tr class="bio-subtitle">
+      <th colspan="4">${test.subtitle}</th>
+    </tr>
+  `;
+
+  /* ===== FIELDS ===== */
   test.fields.forEach(f => {
 
     const key = makeKey(testKey, f.key || f.name);
@@ -1540,7 +2371,7 @@ else if (test.class === "SERUM CALCIUM") {
     if (f.ref) {
       const { flag } = checkFlag(
         result,
-        [f.ref],          // 🔥 direct string
+        [f.ref],
         patient.gender
       );
 
@@ -1550,14 +2381,9 @@ else if (test.class === "SERUM CALCIUM") {
       }
     }
 
+    /* MAIN ROW (not red whole row) */
     html += `
-
-    <td style="
-    FONT-WEIGHT: 700;
-">  ${test.subtitle}</td>
       <tr class="test-row">
-     
-       
         <td>${f.name}</td>
         <td class="td-result ${rowClass}">
           <span class="result-value">${result}</span>
@@ -1567,9 +2393,368 @@ else if (test.class === "SERUM CALCIUM") {
         <td>${f.ref}</td>
       </tr>
     `;
+
+    /* METHOD ROW (optional) */
+    if (f.method) {
+      html += `
+        <tr class="method-row">
+          <td colspan="4" style="font-size:12px; padding:2px 6px; color:#555;">
+            ${f.method}
+          </td>
+        </tr>
+      `;
+    }
   });
 }
+/* ================= cardiac PROFILE   ================= */
+else if (test.class === "CARDIAC PROFILE") {
 
+  const hasValue = test.fields.some(f => {
+    const k = makeKey(testKey, f.key || f.name);
+    return report[k];
+  });
+  if (!hasValue) return "";
+
+  /* ===== TITLE (only once) ===== */
+  if (!window.esrHeaderPrinted) {
+    html += `
+      <tr class="test-title">
+        <th colspan="4">${test.title}</th>
+      </tr>
+      <tr class="test-head">
+        <th>INVESTIGATION</th>
+        <th>RESULT</th>
+        <th>UNITS</th>
+        <th>REFERENCE RANGE</th>
+      </tr>
+    `;
+    window.esrHeaderPrinted = true;
+  }
+
+  /* ===== SUBTITLE (single row like reference) ===== */
+  html += `
+    <tr class="bio-subtitle">
+      <th colspan="4">${test.subtitle}</th>
+    </tr>
+  `;
+
+  /* ===== FIELDS ===== */
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.key || f.name);
+    const result = report[key];
+    if (!result) return;
+
+    let flagHTML = "";
+    let rowClass = "";
+
+    if (f.ref) {
+      const { flag } = checkFlag(
+        result,
+        [f.ref],
+        patient.gender
+      );
+
+      if (flag) {
+        flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+        rowClass = "abnormal-value";
+      }
+    }
+
+    /* MAIN ROW (not red whole row) */
+    html += `
+      <tr class="test-row">
+        <td>${f.name}</td>
+        <td class="td-result ${rowClass}">
+          <span class="result-value">${result}</span>
+          ${flagHTML}
+        </td>
+        <td>${f.unit}</td>
+        <td>${f.ref}</td>
+      </tr>
+    `;
+
+    /* METHOD ROW (optional) */
+    if (f.method) {
+      html += `
+        <tr class="method-row">
+          <td colspan="4" style="font-size:12px; padding:2px 6px; color:#555;">
+            ${f.method}
+          </td>
+        </tr>
+      `;
+    }
+  });
+}
+/* ================= VITAMIN D PROFILE ================= */
+else if (test.key === "VITD") {
+
+  const hasValue = test.fields.some(f => {
+    const k = makeKey(testKey, f.key);
+    return report[k];
+  });
+  if (!hasValue) return "";
+
+  /* ===== TITLE ===== */
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+  `;
+
+  /* ===== TABLE HEAD ===== */
+  html += `
+    <tr class="test-head">
+      <th>TEST DESCRIPTION</th>
+      <th>RESULT</th>
+      <th>UNITS</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+  `;
+
+  /* ===== SUBTITLE ===== */
+  html += `
+    <tr class="bio-subtitle">
+      <th colspan="4">${test.subtitle}</th>
+    </tr>
+  `;
+
+  /* ===== MAIN TEST ROWS ===== */
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.key);
+    const result = report[key];
+    if (!result) return;
+
+    let flagHTML = "";
+    let rowClass = "";
+
+   if (f.ref && f.ref !== "Refer Interpretation") {
+
+  const { flag } = checkFlag(
+    result,
+    [f.ref],
+    patient.gender,
+    patient.age
+  );
+
+  if (flag) {
+    flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+    rowClass = "abnormal-value";
+  }
+}
+
+
+    /* MAIN ROW */
+    html += `
+      <tr class="test-row">
+        <td>${f.name}</td>
+        <td class="td-result ${rowClass}">
+          <span class="result-value">${result}</span>
+          ${flagHTML}
+        </td>
+        <td>${f.unit || ""}</td>
+        <td style="white-space: pre-line;">${f.ref || ""}</td>
+      </tr>
+    `;
+
+    /* METHOD ROW */
+    if (f.method) {
+      html += `
+        <tr class="method-row">
+          <td colspan="4" style="font-size:12px; padding:2px 6px; color:#555;">
+            (${f.method})
+          </td>
+        </tr>
+      `;
+    }
+
+  });
+
+  /* ================= INTERPRETATION TABLE ================= */
+
+  if (Array.isArray(test.interpretationTable)) {
+
+    html += `
+      <tr>
+        <td colspan="4" style="padding-top:10px;">
+          <b>Interpretation :</b>
+          <table style="width:100%; border-collapse:collapse; margin-top:5px;">
+            <tr style="border:1px solid #000; padding:5px; font-size: 12px;">
+              <th style="border:1px solid #000; padding:5px;">LEVEL</th>
+              <th style="border:1px solid #000; padding:5px;">REFERENCE RANGE</th>
+            </tr>
+    `;
+
+    test.interpretationTable.forEach(row => {
+      html += `
+        <tr>
+          <td style="border:1px solid #000; padding:5px; font-size: 12px;">
+            ${row.level}
+          </td>
+          <td style="border:1px solid #000; padding:5px;  font-size: 12px;">
+            ${row.range}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </table>
+        </td>
+      </tr>
+    `;
+  }
+
+  /* ================= DECREASED LEVELS ================= */
+
+  if (Array.isArray(test.decreasedLevels)) {
+    html += `
+      <tr>
+        <td colspan="4" style="padding-top:8px; font-size:10.5px; font-weight: 300;">
+          <b>DECREASED LEVELS:</b><br>
+          ${test.decreasedLevels.map(i => `- ${i}`).join("<br>")}
+        </td>
+      </tr>
+    `;
+  }
+
+  /* ================= INCREASED LEVELS ================= */
+
+  if (Array.isArray(test.increasedLevels)) {
+    html += `
+      <tr>
+        <td colspan="4" style="padding-top:6px; font-size:10px; font-weight: 300;">
+          <b>INCREASED LEVELS:</b><br>
+          ${test.increasedLevels.map(i => `- ${i}`).join("<br>")}
+        </td>
+      </tr>
+    `;
+  }
+
+  /* ================= COMMENTS ================= */
+
+  if (Array.isArray(test.comments)) {
+    html += `
+      <tr>
+        <td colspan="4" style="padding-top:6px; font-size:10.5px; font-weight: 300;
+}">
+          <b>COMMENTS:</b><br>
+          ${test.comments.map(i => `- ${i}`).join("<br>")}
+        </td>
+      </tr>
+    `;
+  }
+}
+
+/* ================= THYROID PROFILE-II ================= */
+else if (test.key === "THYROID2") {
+
+  const hasValue = test.fields.some(f => {
+    const k = makeKey(testKey, f.key);
+    return report[k];
+  });
+  if (!hasValue) return "";
+
+  /* TITLE */
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+  `;
+
+  /* HEAD */
+  html += `
+    <tr class="test-head">
+      <th>TEST DESCRIPTION</th>
+      <th>RESULT</th>
+      <th>UNITS</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+  `;
+
+  /* SUBTITLE */
+  html += `
+    <tr class="bio-subtitle">
+      <th colspan="4">${test.subtitle}</th>
+    </tr>
+  `;
+
+  /* FIELDS */
+  test.fields.forEach(f => {
+
+    const key = makeKey(testKey, f.key);
+    const result = report[key];
+    if (!result) return;
+
+    let flagHTML = "";
+    let rowClass = "";
+
+    if (f.ref) {
+      const { flag } = checkFlag(
+        result,
+        [f.ref],
+        patient.gender,
+        patient.age
+      );
+
+      if (flag) {
+        flagHTML = `<span class="flag shift-flag">${flag}</span>`;
+        rowClass = "abnormal-value";
+      }
+    }
+
+    html += `
+      <tr class="test-row">
+        <td style="vertical-align: top !important;" >${f.name}</td>
+        <td class="td-result ${rowClass}" style="vertical-align: top !important;" >
+          ${result} ${flagHTML}
+        </td>
+        <td style="vertical-align: top !important;" >${f.unit}</td>
+        <td style="white-space:pre-line;">${f.ref}</td>
+      </tr>
+    `;
+
+    if (f.method) {
+      html += `
+        <tr class="method-row">
+          <td colspan="4" style="font-size:12px; color:#555;">
+            (${f.method})
+          </td>
+        </tr>
+      `;
+    }
+
+  });
+
+  /* ================= INTERPRETATION ================= */
+
+  const i = test.interpretation;
+
+  html += `
+    <tr>
+      <td colspan="4" style="padding-top:10px; font-size:12px;">
+        <b>Interpretation:</b><br><br>
+
+        <b>Important Note:</b><br>
+        ${i.importantNote.map(x => x + "<br>").join("")}
+        <br>
+
+        <b>Diurnal Variability:</b> ${i.diurnal}
+        <br><br>
+
+        <b>Limitations:</b><br>
+        ${i.limitations.map(x => "• " + x + "<br>").join("")}
+        <br>
+
+        <b>Please Note:</b> ${i.note}
+        <br><br>
+
+        <b>Associated tests:</b> ${i.associated}
+      </td>
+    </tr>
+  `;
+}
 
 
 /* ================= SEROLOGY : CRP & RA TEST ================= */
@@ -1718,6 +2903,364 @@ else if (test.class === "CRP SEROLOGY TEST") {
       }
     });
   }
+}
+else if (test.class === "PREGNANCY") {
+
+  const testKey = test.key;
+
+  const pregnancyKey = makeKey(testKey, "URINE PREGNANCY TEST");
+  const remarkKey = makeKey(testKey, "REMARK");
+
+  const result = report[pregnancyKey];
+  const remark = report[remarkKey];
+
+  // ✅ Hide test if both empty
+  if (
+    (result === undefined || result === null || result === "") &&
+    (remark === undefined || remark === null || remark === "")
+  ) {
+    return "";
+  }
+
+  html += `
+    <tr class="test-title">
+      <th colspan="2">${test.title}</th>
+    </tr>
+    <tr class="test-head">
+      <th style="width:4%" >Investigation</th>
+      <th>Finding</th>
+    </tr>
+  `;
+
+  if (result) {
+    html += `
+      <tr class="test-row">
+        <td>URINE PREGNANCY TEST</td>
+        <td>
+          ${result}
+          ${result === "POSITIVE" ? '( + )' : result === "NEGATIVE" ? '( - )' : ""}
+        </td>
+      </tr>
+    `;
+  }
+
+  if (remark) {
+    html += `
+      <tr class="test-row">
+        <td>REMARK</td>
+        <td>: ${remark}</td>
+      </tr>
+    `;
+  }
+}
+/* ====================== PREVIEW MXMAL ======================*/
+ 
+else if (test.class === "MXMAL") {
+console.log(report);
+  const testKey = test.key;
+
+  // 🔹 Get values safely
+  const getVal = (name) => {
+    const v = report[makeKey(testKey, name)];
+    return (v !== undefined && v !== null && v !== "") ? v : "";
+  };
+
+  const mantoux = getVal("Mantoux Test");
+  const induration = getVal("Induration");
+
+  const malariaMain = getVal("Malarial Antigen Detection Test");
+  const vivax = getVal("Plasmodium - VIVAX");
+  const falci = getVal("Plasmodium - FALCIPARUM");
+
+  const hasMantoux = mantoux || induration;
+  const hasMalaria = malariaMain || vivax || falci;
+
+  if (!hasMantoux && !hasMalaria) return;   // ✅ no return ""
+
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+  `;
+
+  // ================= MANTOUX =================
+  if (hasMantoux) {
+
+    html += `
+      <tr class="test-head">
+        <th>TEST</th>
+        <th>FINDING</th>
+        <th></th>
+        <th></th>
+      </tr>
+      <tr>
+        <td>Mantoux Test</td>
+        <td><strong>${mantoux}</strong></td>
+        <td></td>
+        <td>Induration : ${induration} After 48/72 hrs</td>
+      </tr>
+    `;
+  }
+
+  // ================= MALARIA =================
+  if (hasMalaria) {
+
+    html += `
+      <tr>
+        <td colspan="4" style="padding-top:10px; font-weight:600;">
+          RAPID MALARIAL ANTIGEN DETECTION TEST
+        </td>
+      </tr>
+    `;
+
+    if (malariaMain) {
+      html += `
+        <tr>
+          <td>Malarial Antigen Detection Test</td>
+          <td colspan="3">${malariaMain}</td>
+        </tr>
+      `;
+    }
+
+    if (vivax) {
+      html += `
+        <tr>
+          <td>Plasmodium - VIVAX</td>
+          <td colspan="3">${vivax}</td>
+        </tr>
+      `;
+    }
+
+    if (falci) {
+      html += `
+        <tr>
+          <td>Plasmodium - FALCIPARUM</td>
+          <td colspan="3">${falci}</td>
+        </tr>
+      `;
+    }
+
+    html += `
+      <tr>
+        <td colspan="4" style="font-size:12px; padding-top:5px;">
+          * Chromatographic Immunoassay to detect P Vivax and P Falciparum Antigens.
+        </td>
+      </tr>
+    `;
+  }
+}
+
+// ====================== PREVIEW ADA ======================
+else if (test.class === "ADA") {
+
+  const testKey = test.key;
+
+  const adaKey = makeKey(testKey, "ADA");
+  const sampleKey = makeKey(testKey, "Sample Type");
+
+  const valueRaw = report[adaKey];
+  const sampleType = report[sampleKey] || "Serum";
+
+  if (!valueRaw) return;
+
+  const value = parseFloat(valueRaw);
+
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+
+    <tr class="test-head">
+      
+      <th>INVESTIGATION</th>
+      <th>RESULT</th>
+      <th>UNIT</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+
+    <tr class="test-row">
+      
+      <td>ADA ( Adenosine Deaminase )</td>
+      <td><strong>${value}</strong></td>
+      <td>U/L</td>
+      <td style="white-space:pre-line;">
+Normal - Less than 30
+Suspect - 30 - 40
+Strong Suspect - 40 - 60
+Positive - More than 60
+CSF - Normal - Less than 10.00
+Positive - More than 10.00
+      </td>
+    </tr>
+  `;
+}
+// ====================== PREVIEW BETA HCG ======================
+else if (test.class === "BHCG") {
+
+  const hcgKey = makeKey(testKey, "β - HCG");
+  const sampleKey = makeKey(testKey, "Sample Type");
+
+  const value = report[hcgKey];
+  const sample = report[sampleKey] || "";
+
+  if (!value) return;
+
+  html += `
+    <tr class="test-title">
+      <th colspan="4">${test.title}</th>
+    </tr>
+
+    <tr class="test-head">
+     
+      <th>INVESTIGATION</th>
+       <th>RESULT</th>
+      <th>UNIT</th>
+      <th>REFERENCE RANGE</th>
+    </tr>
+
+    <tr class="test-row">
+     
+      <td>β - HCG</td>
+       <td><strong>${value}</strong></td>
+      <td>mIU/ml</td>
+      <td style="white-space:pre-line;">${test.referenceText}</td>
+    </tr>
+
+    <tr>
+      <td colspan="4"><strong>Sample Type :</strong> ${sample}</td>
+    </tr>
+
+    <!-- Week Table Heading -->
+    <tr>
+      <td colspan="4" style="padding-top:15px;">
+        <strong>Weeks post LMP (Last Menstrual Period)</strong>
+      </td>
+    </tr>
+
+    <tr>
+      <td colspan="4">
+
+        <table style="width:100%; border-collapse:collapse;">
+
+          <tr>
+            <td style="width:50%; font-weight:bold;">Week of Amenorrhea</td>
+            <td style="width:50%; font-weight:bold;">Concentration (mIU/ml)</td>
+          </tr>
+
+          ${test.weekTable.map(row => `
+            <tr>
+              <td>${row.week}</td>
+              <td>${row.concentration}</td>
+            </tr>
+          `).join("")}
+
+        </table>
+
+      </td>
+    </tr>
+  `;
+}
+
+// ====================== PREVIEW FLUID ======================
+else if (test.class === "FLUID") {
+
+  const testKey = test.key;
+
+  const heading = report[makeKey(testKey, "Heading")];
+  if (!heading) return;
+
+  // 🔹 Main Title
+  html += `
+    <tr class="test-title">
+      <th colspan="2">${heading}</th>
+    </tr>
+
+    <tr class="test-head">
+      <th style="width:33%">INVESTIGATION</th>
+      <th style="width:40%">RESULT</th>
+    </tr>
+  `;
+
+ 
+// JSON.parse(localStorage.getItem("report"))
+  function addSection(title) {
+    html += `
+      <tr>
+        <td colspan="2" style="padding-top:10px;    line-height: 0.8;">
+          <strong>${title}</strong>
+        </td>
+      </tr>
+    `;
+  }
+
+  function addRow(name, value, unit = "") {
+    if (!value || value.trim() === "") return;
+
+    html += `
+      <tr>
+        <td style="    line-height: 0.8;" >${name}</td>
+        <td style="    line-height: 0.8;">${value} ${unit}</td>
+      </tr>
+    `;
+  }
+
+  // 🔹 GROSS EXAMINATION
+  // addSection("GROSS EXAMINATION");
+
+  addRow("Quantity", report[makeKey(testKey,"Quantity")]);
+  addRow("Colour", report[makeKey(testKey,"Colour")]);
+  addRow("Appearance", report[makeKey(testKey,"Appearance")]);
+  addRow("Reaction", report[makeKey(testKey,"Reaction")]);
+  addRow("Coagulum", report[makeKey(testKey,"Coagulum")]);
+
+  // 🔹 CHEMICAL EXAMINATION
+  addSection("CHEMICAL EXAMINATION");
+
+  addRow("Sugar", report[makeKey(testKey,"Sugar")], "mg/dl");
+  addRow("Proteins", report[makeKey(testKey,"Proteins")], "mg/dl");
+  addRow("Chlorides", report[makeKey(testKey,"Chlorides")], "m Eq/L");
+
+  // 🔹 MICROSCOPICAL EXAMINATION
+  addSection("MICROSCOPICAL EXAMINATION");
+
+  addRow("Total RBC Count", report[makeKey(testKey,"Total RBC Count")]);
+  addRow("Total Leucocyte Count", report[makeKey(testKey,"Total Leucocyte Count")], "/cumm");
+
+  // 🔹 DIFFERENTIAL LEUCOCYTE COUNT
+  addSection("DIFFERENTIAL LEUCOCYTE COUNT");
+
+  addRow("Lymphocytes", report[makeKey(testKey,"Lymphocytes")], "%");
+  addRow("Eosinophils", report[makeKey(testKey,"Eosinophils")], "%");
+  addRow("Monocytes", report[makeKey(testKey,"Monocytes")], "%");
+  addRow("Basophils", report[makeKey(testKey,"Basophils")], "%");
+  addRow("Band Forms", report[makeKey(testKey,"Band Forms")], "%");
+  addRow("White Blood Cells", report[makeKey(testKey,"White Blood Cells")]);
+
+  // 🔹 OTHER EXAMINATION
+  addSection("OTHER EXAMINATION");
+
+  addRow("Wet Preparation", report[makeKey(testKey,"Wet Preparation")]);
+  addRow("Gram Staining", report[makeKey(testKey,"Gram Staining")]);
+  addRow("Other", report[makeKey(testKey,"Other")]);
+  addRow("India Ink Preparation", report[makeKey(testKey,"India Ink Preparation")]);
+
+// 🔹 IMPRESSION (ALWAYS LAST)
+// 🔹 IMPRESSION (ALWAYS LAST)
+const impression = report[makeKey(testKey, "Impression")];
+
+if (impression && impression.trim() !== "") {
+
+  html += `
+    <tr>
+      <td>
+        <strong>IMPRESSION :</strong>
+      </td>
+      <td style="white-space:pre-line;">
+        ${impression}
+      </td>
+    </tr>
+  `;
+}
 }
 
 /* ================= SEROLOGY : ALL TEST (PREVIEW) ================= */
@@ -1894,52 +3437,61 @@ else if (test.title?.toUpperCase().includes("URINE")) {
     </tr>
   `;
 
-  test.sections.forEach(section => {
+test.sections.forEach(section => {
 
-    html += `
-      <tr class="bio-subtitle">
-        <th colspan="2">${section.name}</th>
-      </tr>
-    `;
-section.fields.forEach(f => {
-  const fieldName = f[0];
-  const config = f[1] || {};
-  const fieldKey = makeKey(testKey, fieldName);
-  const value = report[fieldKey];
+  // 🔎 check if this section has any value
+  const sectionHasValue = section.fields.some(f => {
+    const key = makeKey(testKey, f[0]);
+    return report[key];
+  });
 
-  if (!value) return;
-
-  let cls = "";
-
-  // 🟢 TEXT → always normal
-  if (config.type === "text") {
-    cls = "normal-value";
-  }
-
-  // 🟢 SELECT → first option normal, rest abnormal
-  else if (
-    config.type === "select" &&
-    Array.isArray(config.options) &&
-    config.options.length
-  ) {
-    cls =
-      value === config.options[0]
-        ? "normal-value"
-        : "abnormal-value";
-  }
+  // ❌ skip section if no values
+  if (!sectionHasValue) return;
 
   html += `
-    <tr class="test-row">
-      <td>${fieldName}</td>
-      <td class="td-result">
-        <span class="result-value ${cls}">${value}</span>
-      </td>
+    <tr class="bio-subtitle">
+      <th colspan="2">${section.name}</th>
     </tr>
   `;
-});
 
+  section.fields.forEach(f => {
+    const fieldName = f[0];
+    const config = f[1] || {};
+    const fieldKey = makeKey(testKey, fieldName);
+    const value = report[fieldKey];
 
+    if (!value) return;
+
+    let cls = "";
+
+    // 🟢 TEXT → always normal
+    if (config.type === "text") {
+      cls = "normal-value";
+    }
+
+    // 🟢 SELECT → first option normal, rest abnormal
+    else if (
+      config.type === "select" &&
+      Array.isArray(config.options) &&
+      config.options.length
+    ) {
+      cls =
+        value === config.options[0]
+          ? "normal-value"
+          : "abnormal-value";
+    }
+
+    html += `
+      <tr class="test-row">
+        <td>${fieldName}</td>
+        <td class="td-result">
+          <span class="result-value ${cls}">${value}</span>
+        </td>
+      </tr>
+    `;
   });
+
+});
 
   html += `</table>`;
 }
@@ -2099,7 +3651,15 @@ function renderPreview() {
 // yaha tk  
 selectedTests.forEach(testKey => {
 
-  const test = Tests[testKey];
+  // const test = Tests[testKey];
+  const test = Array.isArray(Tests)
+  ? Tests.find(t => t.key === testKey)
+  : Tests[testKey];
+
+if (!test) {
+  console.error("Test not found:", testKey);
+  return;
+}
 
   // 🔥 PS FOR MP ko abhi skip karo, baad me render hoga
   if (
@@ -2185,89 +3745,58 @@ document.querySelectorAll(".page").forEach(p => {
 function downloadColoredPDF() {
   pdf.classList.remove("plain-mode");
 
-  html2pdf()
+  return html2pdf()
     .from(pdf)
     .set({
       margin: 0,
       filename: `${patient.name}_COLORED.pdf`,
-      // jsPDF: { unit: "mm", format: [243, 320], orientation: "portrait" },
       jsPDF: {
-  unit: "mm",
-  format: "a4",
-  orientation: "portrait"
-},
-
-      // html2canvas: {
-      //   scale: 2,
-      //   useCORS: true,
-      //   backgroundColor: "#ffffff",
-      //   scrollY: 0
-      // },
-//       html2canvas: {
-//   scale: 3,
-//   useCORS: true,
-//   backgroundColor: "#ffffff",
-//   scrollY: 0,
-//   imageTimeout: 15000
-// },
-html2canvas: {
-  scale: 4,
-  useCORS: true,
-  backgroundColor: "#ffffff",
-  scrollY: 0,
-  imageTimeout: 20000,
-  letterRendering: true
-}
-
-
+        unit: "mm",
+        format: "a4",
+        orientation: "portrait"
+      },
+      html2canvas: {
+        scale: 4,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        scrollY: 0,
+        imageTimeout: 20000,
+        letterRendering: true
+      }
     })
     .save()
-     .then(() => {
-      savePdfHistory("COLORED"); // 🔥 ADD THIS
+    .then(() => {
+      savePdfHistory("COLORED");
     });
 }
+
 
 function downloadPlainPDF() {
   pdf.classList.add("plain-mode");
 
-  html2pdf()
+  return html2pdf()
     .from(pdf)
     .set({
       margin: 0,
       filename: `${patient.name}_PLAIN.pdf`,
-      // jsPDF: { unit: "mm", format: [243, 320], orientation: "portrait" },
-          jsPDF: {
-  unit: "mm",
-  format: "a4",
-  orientation: "portrait"
-},
-      // html2canvas: {
-      //   scale: 2,
-      //   useCORS: true,
-      //   backgroundColor: "#ffffff",
-      //   scrollY: 0
-      // },
-//       html2canvas: {
-//   scale: 3,
-//   useCORS: true,
-//   backgroundColor: "#ffffff",
-//   scrollY: 0,
-//   imageTimeout: 15000
-// },
-html2canvas: {
-  scale: 4,
-  useCORS: true,
-  backgroundColor: "#ffffff",
-  scrollY: 0,
-  imageTimeout: 20000,
-  letterRendering: true
-}
-
+      jsPDF: {
+        unit: "mm",
+        format: "a4",
+        orientation: "portrait"
+      },
+      html2canvas: {
+        scale: 4,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        scrollY: 0,
+        imageTimeout: 20000,
+        letterRendering: true
+      }
     })
     .save()
     .then(() => {
       savePdfHistory("PLAIN");
-      pdf.classList.remove("plain-mode"); // reset back
+      pdf.classList.remove("plain-mode");
     });
 }
 
@@ -2292,27 +3821,59 @@ window.download = async () => {
     return;
   }
 
+  const userId = sessionData.session.user.id;
   const fromHistory = localStorage.getItem("fromHistory");
 
-  if (fromHistory !== "1") {
-    // ✅ Only first-time normal generation save hoga
-   await saveReport(patient, report, selectedTests);
+  /* ================= NEW REPORT FLOW ================= */
 
-  } else {
+  if (fromHistory !== "1") {
+
+    const result = await saveReport(patient, report, selectedTests);
+
+    if (!result || !result.success) {
+      alert("❌ Report save failed. PDF cancelled.");
+      return;
+    }
+
+    // 🔥 DIRECT DATABASE VERIFICATION
+    const { data: verifyData, error } = await supabase
+      .from("report_history")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("lrn", result.lrn)
+      .maybeSingle();
+
+    if (error || !verifyData) {
+      alert("❌ Database verification failed.");
+      return;
+    }
+
+    alert("✅ Report successfully saved in database (LRN: " + result.lrn + ")");
+  }
+  else {
     console.log("Opened from history → skip saving");
   }
 
-  // PDF download allowed in both cases
-  downloadColoredPDF();
+  /* ================= PDF DOWNLOAD ================= */
 
-  setTimeout(() => {
-    downloadPlainPDF();
-  }, 600);
+  try {
+    await downloadColoredPDF();
+    alert("🟢 Colored PDF downloaded successfully");
+  } catch (e) {
+    alert("❌ Colored PDF download failed");
+    return;
+  }
 
-  // 🔥 IMPORTANT: remove AFTER download click
+  try {
+    await downloadPlainPDF();
+    alert("⚪ Plain PDF downloaded successfully");
+  } catch (e) {
+    alert("❌ Plain PDF download failed");
+    return;
+  }
+
   localStorage.removeItem("fromHistory");
 };
-
 
 
 
