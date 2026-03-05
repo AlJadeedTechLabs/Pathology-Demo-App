@@ -50,7 +50,7 @@
   <h4 id="patientInfo"></h4>
  <form id="testForm" class="test-form"></form>
 
-  <button class="btn btn-success mt-3" onclick="next()">Preview</button>
+  <button class="btn btn-success mt-3" style="width: 100%;" onclick="next()">Preview</button>
 </div>
 
 </body>
@@ -61,6 +61,7 @@ body {
   background: linear-gradient(135deg, #eef2ff, #f8f9ff);
   min-height: 100vh;
   font-family: 'Segoe UI', sans-serif;
+      padding: 4px 4px 40px 4px;
 }
 
 .container {
@@ -159,7 +160,7 @@ label {
 
 /* ===== BUTTON ===== */
 button.btn-success {
-  border-radius: 14px;
+  border-radius: 10px;
   font-size: 16px;
   padding: 12px;
   background: linear-gradient(135deg, #667eea, #764ba2);
@@ -172,7 +173,32 @@ button.btn-success:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(102,126,234,0.3);
 }
+/* ===== FULL WIDTH FIELD ===== */
+.full-row {
+  grid-column: span 2;
+}
 
+
+.auto-field {
+  background-color: #eef7ff;
+  font-weight: 600;
+  border: 1px solid #ff0000;
+  /* pointer-events: none; */
+}
+.section-heading {
+  font-weight: 700;
+  margin-top: 15px;
+  margin-bottom: 5px;
+  background: #f3f3f3;
+  padding: 6px 10px;
+  border-left: 4px solid #444;
+}
+
+.sub-label {
+  font-size: 12px;
+  font-style: italic;
+  margin-bottom: 8px;
+}
 
 /* ===== MOBILE ===== */
 @media (max-width: 768px) {
@@ -196,6 +222,10 @@ button.btn-success:hover {
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+   .full-row {
+    grid-column: span 1;
   }
 
   .input {
