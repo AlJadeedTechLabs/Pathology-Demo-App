@@ -1705,11 +1705,11 @@ if (test.title.toLowerCase().includes("urine")) {
               id="${fieldKey}"
               onchange="toggleOther(this)">
 
-        <!-- Blank First Option -->
+        <!-- Blank option -->
         <option value=""></option>
 
-        ${f[1].options.map(opt =>
-          `<option value="${opt}">${opt}</option>`
+        ${f[1].options.map((opt,i) =>
+          `<option value="${opt}" ${i === 0 ? "selected" : ""}>${opt}</option>`
         ).join("")}
 
         <option value="OTHER">Other</option>
