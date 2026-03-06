@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+ <script type="module">
+
+import { protectPage, logout } from "./js/auth.js";
+import { checkDevicePermission } from "./js/deviceCheck.js";
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+  await protectPage();
+  await checkDevicePermission();
+
+  const btn = document.getElementById("logoutBtn");
+  if (btn) btn.addEventListener("click", logout);
+
+});
+
+</script>
   <meta charset="UTF-8">
 
   <!-- 🔥 MOBILE FIX -->
