@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload Lab Images</title>
+
+<link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
+}
+
+body{
+min-height:100vh;
+background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+display:flex;
+align-items:center;
+justify-content:center;
+padding:20px;
+}
+
+/* wrapper */
+
+.main-wrapper{
+width:100%;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+/* card */
+
+.signup-card{
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(20px);
+border-radius:20px;
+padding:40px 35px;
+width:100%;
+max-width:480px;
+box-shadow:0 20px 40px rgba(0,0,0,0.4);
+color:#fff;
+text-align:center;
+animation:fadeIn .8s ease-in-out;
+}
+
+.signup-card h3{
+font-weight:600;
+margin-bottom:5px;
+font-size:26px;
+}
+
+.subtitle{
+font-size:14px;
+opacity:.8;
+margin-bottom:25px;
+}
+
+/* form spacing */
+
+.form-group{
+margin-bottom:18px;
+}
+
+/* labels */
+
+label{
+font-weight:500;
+display:block;
+margin-bottom:6px;
+text-align:left;
+font-size:14px;
+}
+
+/* inputs */
+
+.custom-input{
+background:rgba(255,255,255,0.15);
+border:none;
+color:#fff;
+height:48px;
+border-radius:10px;
+padding:0 15px;
+width:100%;
+font-size:14px;
+}
+
+.custom-input::placeholder{
+color:rgba(255,255,255,0.7);
+}
+
+.custom-input:focus{
+background:rgba(255,255,255,0.25);
+box-shadow:none;
+outline:none;
+color:#fff;
+}
+
+/* dropdown */
+
+select.custom-input{
+background:rgba(255,255,255,0.15);
+color:#fff;
+}
+
+select.custom-input option{
+color:#000;
+background:#fff;
+}
+
+/* preview images */
+
+.preview{
+margin-top:10px;
+width:100%;
+max-height:140px;
+object-fit:contain;
+border-radius:8px;
+border:1px solid rgba(255,255,255,0.3);
+display:none;
+}
+
+/* section title */
+
+h5{
+margin-top:25px;
+margin-bottom:15px;
+font-size:16px;
+}
+
+/* buttons */
+
+.signup-btn{
+background:linear-gradient(45deg,#00c6ff,#0072ff);
+border:none;
+color:white;
+padding:12px;
+width:100%;
+border-radius:25px;
+font-weight:600;
+font-size:15px;
+transition:.3s;
+margin-top:18px;
+cursor:pointer;
+}
+
+.signup-btn:hover{
+transform:translateY(-2px);
+box-shadow:0 10px 20px rgba(0,114,255,.4);
+}
+
+/* button group */
+
+.button-group{
+display:flex;
+gap:12px;
+margin-top:20px;
+}
+
+.button-group .signup-btn{
+margin-top:0;
+}
+
+/* animation */
+
+@keyframes fadeIn{
+
+from{
+opacity:0;
+transform:translateY(20px);
+}
+
+to{
+opacity:1;
+transform:translateY(0);
+}
+
+}
+
+/* tablet */
+
+@media(max-width:768px){
+
+.signup-card{
+padding:35px 25px;
+max-width:520px;
+}
+
+
+
+}
+
+/* mobile */
+
+/* mobile */
+
+@media (max-width:480px){
+
+body{
+padding:12px;
+display:block;
+}
+
+.main-wrapper{
+width:100%;
+}
+
+.signup-card{
+width:100%;
+max-width:100%;
+padding:22px;
+margin:0 auto;
+}
+
+.signup-card h3{
+font-size:22px;
+}
+
+.subtitle{
+font-size:13px;
+}
+
+.custom-input{
+height:48px;
+font-size:15px;
+}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="main-wrapper">
+
+<div class="signup-card">
+
+<h3>Upload Lab Images</h3>
+<p class="subtitle">Configure report header & footer</p>
+
+<div class="form-group">
+
+<label>Select User</label>
+
+<select id="userSelect" class="form-control custom-input"></select>
+
+</div>
+
+
+<div class="form-group">
+
+<label>Top Image</label>
+
+<input type="file" id="topImage" class="form-control custom-input" accept="image/*">
+
+<img id="topPreview" class="preview">
+
+</div>
+
+
+<div class="form-group">
+
+<label>Background Image</label>
+
+<input type="file" id="bgImage" class="form-control custom-input" accept="image/*">
+
+<img id="bgPreview" class="preview">
+
+</div>
+
+
+<div class="form-group">
+
+<label>Bottom Image</label>
+
+<input type="file" id="bottomImage" class="form-control custom-input" accept="image/*">
+
+<img id="bottomPreview" class="preview">
+
+</div>
+
+
+<hr>
+
+
+<h5 class="mb-3">Display Settings</h5>
+
+
+<div class="form-group">
+
+<label>Device Mode</label>
+
+<select id="deviceMode" class="form-control custom-input">
+
+<option value="both">Mobile + Desktop</option>
+<option value="desktop">Only Desktop</option>
+
+</select>
+
+</div>
+
+
+<div class="form-group">
+
+<label>Footer Line</label>
+
+<textarea
+id="footerText"
+class="form-control custom-input"
+rows="3"
+placeholder="Enter footer text for report"></textarea>
+
+</div>
+
+
+<button class="btn signup-btn" id="uploadBtn">
+Upload Images
+</button>
+
+</div>
+
+</div>
+
+
+<script type="module">
+
+import { supabase } from "../js/supabase.js";
+
+const userSelect = document.getElementById("userSelect");
+
+
+/* ===========================
+IMAGE PREVIEW
+=========================== */
+
+function previewImage(input,previewId){
+
+const file = input.files[0];
+
+if(!file) return;
+
+const reader = new FileReader();
+
+reader.onload = function(e){
+
+const img = document.getElementById(previewId);
+
+img.src = e.target.result;
+
+img.style.display="block";
+
+};
+
+reader.readAsDataURL(file);
+
+}
+
+
+document.getElementById("topImage")
+.addEventListener("change",function(){
+previewImage(this,"topPreview");
+});
+
+document.getElementById("bgImage")
+.addEventListener("change",function(){
+previewImage(this,"bgPreview");
+});
+
+document.getElementById("bottomImage")
+.addEventListener("change",function(){
+previewImage(this,"bottomPreview");
+});
+
+
+
+/* ===========================
+FETCH USERS
+=========================== */
+
+async function loadUsers(){
+
+const { data, error } = await supabase
+.from("users")
+.select("email");
+
+if(error){
+console.log(error);
+return;
+}
+
+data.forEach(u => {
+
+const option = document.createElement("option");
+
+option.value = u.email;
+option.textContent = u.email;
+
+userSelect.appendChild(option);
+
+});
+
+}
+
+loadUsers();
+
+
+
+/* ===========================
+UPLOAD IMAGE
+=========================== */
+
+async function uploadImage(file,email,name){
+
+if(!file) return null;
+
+/* email safe folder */
+
+const safeEmail = email
+.replace("@","_")
+.replace(/\./g,"_");
+
+/* get extension */
+
+const ext = file.name.split(".").pop();
+
+const path = `${safeEmail}/${name}.${ext}`;
+
+const { error } = await supabase.storage
+.from("assets")
+.upload(path,file,{
+cacheControl:"3600",
+upsert:true
+});
+
+if(error){
+console.log("Upload error:",error);
+return null;
+}
+
+const { data } = supabase.storage
+.from("assets")
+.getPublicUrl(path);
+
+return data.publicUrl;
+
+}
+
+
+
+/* ===========================
+UPLOAD BUTTON
+=========================== */
+
+document.getElementById("uploadBtn")
+.addEventListener("click", async () => {
+
+const email = userSelect.value;
+
+const deviceMode = document.getElementById("deviceMode").value;
+
+const footerText = document.getElementById("footerText").value;
+
+
+const top = document.getElementById("topImage").files[0];
+
+const bg = document.getElementById("bgImage").files[0];
+
+const bottom = document.getElementById("bottomImage").files[0];
+
+
+if(!email){
+alert("Select user");
+return;
+}
+
+
+/* upload images */
+
+const topUrl = await uploadImage(top,email,"top");
+
+const bgUrl = await uploadImage(bg,email,"bg");
+
+const bottomUrl = await uploadImage(bottom,email,"bottom");
+
+
+/* ===========================
+UPDATE DATABASE
+=========================== */
+
+const updateData = {};
+
+if(topUrl) updateData.top_image = topUrl;
+
+if(bgUrl) updateData.bg_image = bgUrl;
+
+if(bottomUrl) updateData.bottom_image = bottomUrl;
+
+
+/* NEW FIELDS */
+
+updateData.device_mode = deviceMode;
+
+updateData.footer_text = footerText;
+
+
+const { error } = await supabase
+.from("users")
+.update(updateData)
+.eq("email",email);
+
+
+if(error){
+console.log(error);
+alert("Database error");
+return;
+}
+
+alert("Images uploaded successfully");
+
+});
+
+</script>
+
+</body>
+</html>
