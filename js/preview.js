@@ -1,6 +1,9 @@
 import { supabase } from "./supabase.js";
 import Tests from "../tests/index.js";
 // console.log(test.class);
+
+let labFooterText = "YOUR BLOOD CLINICAL LABORATORY, SHORT ADDRESS";
+
 const pdf = document.getElementById("pdf");
 async function getNextLRN(userId) {
 
@@ -27,29 +30,42 @@ async function loadLabImages(email) {
 
   const { data, error } = await supabase
     .from("users")
-    .select("top_image,bg_image,bottom_image")
-    .eq("email",email)
+    .select("top_image,bg_image,bottom_image,footer_text")
+    .eq("email", email)
     .single();
 
-  if(error){
+  if (error) {
     console.log(error);
     return;
   }
 
-  const page = document.querySelector(".page");
-  if(!page) return;
-
-  if(data.top_image){
-    page.style.setProperty("--lab-top",`url("${data.top_image}")`);
+  /* 🔥 SET FOOTER FIRST */
+  if (data.footer_text) {
+    labFooterText = data.footer_text;
   }
 
-  if(data.bottom_image){
-    page.style.setProperty("--lab-bottom",`url("${data.bottom_image}")`);
-  }
+ /* 🔥 APPLY IMAGES TO ROOT SO ALL PAGES GET THEM */
 
-  if(data.bg_image){
-    page.style.setProperty("--lab-bg",`url("${data.bg_image}")`);
-  }
+if (data.top_image) {
+  document.documentElement.style.setProperty(
+    "--lab-top",
+    `url("${data.top_image}")`
+  );
+}
+
+if (data.bottom_image) {
+  document.documentElement.style.setProperty(
+    "--lab-bottom",
+    `url("${data.bottom_image}")`
+  );
+}
+
+if (data.bg_image) {
+  document.documentElement.style.setProperty(
+    "--lab-bg",
+    `url("${data.bg_image}")`
+  );
+}
 
 }
 
@@ -86,7 +102,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) return;
 
-  const userId = sessionData.session.user.id;
+  // const userId = sessionData.session.user.id;
+
+  const user = sessionData.session.user;
+const userId = user.id;
+
+/* 🔥 LOAD LAB DATA FIRST */
+await loadLabImages(user.email);
 
   // 🔥 CHECK IF OPENED FROM HISTORY
   const fromHistory = localStorage.getItem("fromHistory");
@@ -1069,9 +1091,10 @@ content.id = "page-content";
   footer.className = "footer";
   footer.innerHTML = `
     <div class="footer-line"></div>
-    <div class="footer-text">
-      P.NO - 1 ***ADVANCE BLOOD CLINICAL LABORATORY, WADNER BHOLJI ***
-    </div>
+   
+    <div class="footer-text">P.NO - 1 ***
+${labFooterText}***
+</div>
     <div class="footer-thanks">"Thanks for Referral"</div>
   `;
 
@@ -3631,6 +3654,15 @@ else if (
 
 let psForMpKey = null; // 🔥 PS FOR MP ko last ke liye store
 
+// 🔴 NEW VARIABLES
+let smallTestCount = 0;
+let hasCBC = false;
+let hasUrine = false;
+let forceSecondPage = false;
+let pageBreakDone = false;
+
+let forceSecondPageAfterCBC = false;
+
 // baadme 
 
 function renderPreview() {
@@ -3644,9 +3676,38 @@ function renderPreview() {
   serologyGroup.length = 0;
   psForMpKey = null;
 
+  smallTestCount = 0;
+hasCBC = false;
+hasUrine = false;
+forceSecondPage = false;
+pageBreakDone = false;
+
+forceSecondPageAfterCBC = false;
+
   /* ================= PAGINATION ================= */
 
+/* ===== DETECT CBC + MULTIPLE TESTS ===== */
 
+
+
+selectedTests.forEach(testKey => {
+
+  const test = Array.isArray(Tests)
+    ? Tests.find(t => t.key === testKey)
+    : Tests[testKey];
+
+  if (!test) return;
+
+  const name = (test.testname || "").toUpperCase();
+
+  if (name.includes("CBC")) {
+    hasCBC = true;
+  }
+
+});
+
+// 🔴 CBC + more tests
+forceSecondPageAfterCBC = hasCBC && selectedTests.length > 1;
 
 // yaha tk  
 selectedTests.forEach(testKey => {
@@ -3677,6 +3738,18 @@ if (!test) {
   }
 
   if (!currentPage) newPage();
+
+
+  // 🔴 FORCE PAGE 2 AFTER CBC + URINE
+const name = (test.testname || "").toUpperCase();
+
+// 🔴 CBC ke baad page break
+if (forceSecondPageAfterCBC && !pageBreakDone && !name.includes("CBC")) {
+  newPage();
+  pageBreakDone = true;
+}
+
+
 
   const block = document.createElement("div");
   block.className = "test-block serology-block category-block";
