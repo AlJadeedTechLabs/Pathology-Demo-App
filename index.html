@@ -814,7 +814,16 @@ if (daysLeft > 0 && daysLeft <= 3) {
   }
 
   document.addEventListener("DOMContentLoaded", showLabName);
+
+
+
+  if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/Pathology-Demo-App/sw.js")
+  .then(() => console.log("SW Registered"))
+  .catch(err => console.log(err));
+}
 </script>
 
 
 </html>
+
