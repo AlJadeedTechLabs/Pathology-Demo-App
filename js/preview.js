@@ -69,6 +69,23 @@ if (data.bg_image) {
 
 }
 
+function updatePageNumbers() {
+
+  const pages = document.querySelectorAll(".page");
+
+  const total = pages.length;
+
+  pages.forEach((page, index) => {
+
+    const pageNumber = page.querySelector(".page-number");
+
+    if (pageNumber) {
+      pageNumber.textContent = `P.NO - ${index + 1} / ${total}`;
+    }
+
+  });
+
+}
 
 /* ===== USER LOAD ===== */
 async function initLabImages() {
@@ -1092,8 +1109,9 @@ content.id = "page-content";
   footer.innerHTML = `
     <div class="footer-line"></div>
    
-    <div class="footer-text">P.NO - 1 ***
-${labFooterText}***
+   <div class="footer-text">
+<span class="page-number"></span> **
+${labFooterText}**
 </div>
     <div class="footer-thanks">"Thanks for Referral"</div>
   `;
@@ -3811,6 +3829,8 @@ document.querySelectorAll(".page").forEach(p => {
   const tests = p.querySelector(".tests");
   if (!tests || tests.children.length === 0) p.remove();
 });
+
+updatePageNumbers();
 
 }
 
