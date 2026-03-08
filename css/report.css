@@ -180,7 +180,8 @@ body {
   background-image: var(--lab-top), var(--lab-bottom);
   background-position: top center, bottom center;
   background-repeat: no-repeat, no-repeat;
-  background-size: 100% 71mm, 100% 45mm;
+ /* background-size: 100% 71mm, 100% 45mm; */
+      background-size: 100%, 100%;
   z-index: 0;
 }
 
