@@ -1080,7 +1080,9 @@ content.id = "page-content";
   patientDiv.className = "patient";
   patientDiv.innerHTML = `
     <div class="patient-grid">
-      <div>
+      <div style="
+    width: 100%;
+">
         <div class="p-row"><span class="p-label">Patient</span><span class="p-colon">:</span><span class="p-value">${patient.name}</span></div>
         <div class="p-row"><span class="p-label">Reff. By</span><span class="p-colon">:</span><span class="p-value">${patient.doctor}</span></div>
         <div class="p-row"><span class="p-label">Sample</span><span class="p-colon">:</span><span class="p-value">${patient.sample}</span></div>
