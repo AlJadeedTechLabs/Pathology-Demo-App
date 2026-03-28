@@ -315,7 +315,7 @@ td {
 .patient-grid {
   display: flex;
   justify-content: space-between;
-  column-gap: 25mm;   /* 🔥 exact gap between left & right */
+/*  column-gap: 25mm;   /* 🔥 exact gap between left & right */
 }
 
 /* ONE ROW */
