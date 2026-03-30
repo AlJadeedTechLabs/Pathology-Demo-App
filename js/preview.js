@@ -198,21 +198,29 @@ await loadLabImages(user.email);
 //   console.log("Saved LRN:", freshLRN);
 // }
 
+let alreadySaved = false;
+
 export async function saveReport(patientData, reportData, tests) {
 
-  // 🔴 BLOCK SAVE IF FROM HISTORY
-if (patientData?.lrn_from_history) {
-  console.log("⛔ Skip save (history mode)");
-  return { success: true, lrn: patientData.lrn };
-}
+  // ❌ HISTORY MODE → NO SAVE
+  if (patientData?.lrn_from_history) {
+    console.log("⛔ Skip save (history mode)");
+    return { success: true, lrn: patientData.lrn };
+  }
+
+  // ❌ DOUBLE CLICK BLOCK
+  if (alreadySaved) {
+    console.log("⛔ Already saved, skipping duplicate");
+    return { success: true, lrn: patientData.lrn };
+  }
 
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) return { success: false };
 
   const userId = sessionData.session.user.id;
 
-  // const freshLRN = await getNextLRN(userId);
-  const freshLRN = generatedLRN;
+  // ✅ ALWAYS GET FRESH LRN
+  const freshLRN = await getNextLRN(userId);
 
   generatedLRN = freshLRN;
   patient.lrn = freshLRN;
@@ -226,19 +234,16 @@ if (patientData?.lrn_from_history) {
       tests: tests,
       lrn: freshLRN
     })
-    .select(); // 🔥 ADD THIS (important for confirmation)
+    .select();
 
   if (error) {
     alert(error.message);
     return { success: false };
   }
 
-  if (data && data.length > 0) {
-    console.log("Saved LRN:", freshLRN);
-    return { success: true, lrn: freshLRN };
-  }
+  alreadySaved = true; // 🔥 MARK SAVED
 
-  return { success: false };
+  return { success: true, lrn: freshLRN };
 }
 
 
