@@ -8,6 +8,7 @@
 <link rel="stylesheet"
 href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
 
+
 <style>
 
 *{
@@ -409,7 +410,73 @@ userSelect.appendChild(option);
 
 }
 
+
+const defaultOption = document.createElement("option");
+defaultOption.textContent = "Select User";
+defaultOption.value = "";
+userSelect.appendChild(defaultOption);
 loadUsers();
+/* ===========================
+AUTO FETCH USER DATA
+=========================== */
+
+userSelect.addEventListener("change", async () => {
+
+const email = userSelect.value;
+
+if(!email) return;
+
+document.getElementById("topImage").value = "";
+document.getElementById("bgImage").value = "";
+document.getElementById("bottomImage").value = "";
+
+const { data, error } = await supabase
+  .from("users")
+  .select("*")
+  .eq("email", email)
+  .single();
+
+if(error){
+  console.log(error);
+  return;
+}
+
+/* RESET PREVIEWS */
+
+document.getElementById("topPreview").style.display = "none";
+document.getElementById("bgPreview").style.display = "none";
+document.getElementById("bottomPreview").style.display = "none";
+
+/* FILL DATA */
+
+document.getElementById("deviceMode").value =
+  data.device_mode || "both";
+
+document.getElementById("footerText").value =
+  data.footer_text || "";
+
+/* SHOW IMAGES */
+
+if(data.top_image){
+  const img = document.getElementById("topPreview");
+  img.src = data.top_image;
+  img.style.display = "block";
+}
+
+if(data.bg_image){
+  const img = document.getElementById("bgPreview");
+  img.src = data.bg_image;
+  img.style.display = "block";
+}
+
+if(data.bottom_image){
+  const img = document.getElementById("bottomPreview");
+  img.src = data.bottom_image;
+  img.style.display = "block";
+}
+
+});
+
 
 
 
@@ -431,7 +498,9 @@ const safeEmail = email
 
 const ext = file.name.split(".").pop();
 
-const path = `${safeEmail}/${name}.${ext}`;
+// const path = `${safeEmail}/${name}.${ext}`;
+const fileName = `${name}_${Date.now()}.${ext}`;
+const path = `${safeEmail}/${fileName}`;
 
 const { error } = await supabase.storage
 .from("assets")
@@ -503,7 +572,17 @@ if(bgUrl) updateData.bg_image = bgUrl;
 
 if(bottomUrl) updateData.bottom_image = bottomUrl;
 
+if(topUrl){
+  document.getElementById("topPreview").src = topUrl + "?t=" + new Date().getTime();
+}
 
+if(bgUrl){
+  document.getElementById("bgPreview").src = bgUrl + "?t=" + new Date().getTime();
+}
+
+if(bottomUrl){
+  document.getElementById("bottomPreview").src = bottomUrl + "?t=" + new Date().getTime();
+}
 /* NEW FIELDS */
 
 updateData.device_mode = deviceMode;
