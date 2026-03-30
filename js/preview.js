@@ -131,6 +131,7 @@ await loadLabImages(user.email);
   const fromHistory = localStorage.getItem("fromHistory");
 
   if (fromHistory === "1") {
+    patient.lrn_from_history = true; // 🔥 IMPORTANT
 
     // ✅ USE OLD PATIENT DATA (DO NOT GENERATE NEW LRN)
     const savedPatient = JSON.parse(localStorage.getItem("patient"));
@@ -198,6 +199,12 @@ await loadLabImages(user.email);
 // }
 
 export async function saveReport(patientData, reportData, tests) {
+
+  // 🔴 BLOCK SAVE IF FROM HISTORY
+if (patientData?.lrn_from_history) {
+  console.log("⛔ Skip save (history mode)");
+  return { success: true, lrn: patientData.lrn };
+}
 
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) return { success: false };
@@ -3921,7 +3928,8 @@ window.download = async () => {
 
   /* ================= NEW REPORT FLOW ================= */
 
-  if (fromHistory !== "1") {
+  // if (fromHistory !== "1") {
+  if (fromHistory !== "1" && !patient?.lrn_from_history) {
 
     const result = await saveReport(patient, report, selectedTests);
 
@@ -3976,4 +3984,3 @@ window.download = async () => {
 
 document.getElementById("downloadBtn")
   ?.addEventListener("click", download);
-
