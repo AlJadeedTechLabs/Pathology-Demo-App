@@ -10,7 +10,7 @@
 
   "icons": [
     {
-      "src": "assets/32.jpg",
+      "src": "assets/32n.jpg",
       "sizes": "32x32",
       "type": "image/jpeg"
     },
@@ -20,7 +20,7 @@
       "type": "image/jpeg"
     },
     {
-      "src": "assets/192.jpg",
+      "src": "assets/192n.jpg",
       "sizes": "192x192",
       "type": "image/jpeg"
     },
