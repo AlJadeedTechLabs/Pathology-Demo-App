@@ -10,10 +10,14 @@ import { checkDevicePermission } from "./js/deviceCheck.js";
 document.addEventListener("DOMContentLoaded", () => {
 
   // 👇 INSTALL FIX: delay auth
-  setTimeout(async () => {
+setTimeout(async () => {
+  try {
     await protectPage();
     await checkDevicePermission();
-  }, 2000);
+  } catch (e) {
+    console.log("Auth delayed");
+  }
+}, 3000); // 👈 3 sec better
 
   const btn = document.getElementById("logoutBtn");
   if (btn) btn.addEventListener("click", logout);
@@ -85,7 +89,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 </script> -->
 
-// await protectPage();
+
 
    <script type="module" src="./js/main.js"></script>
   <!-- <script type="module" src="js/main.js"></script> -->
