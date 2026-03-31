@@ -7,10 +7,13 @@
 import { protectPage, logout } from "./js/auth.js";
 import { checkDevicePermission } from "./js/deviceCheck.js";
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
 
-  await protectPage();
-  await checkDevicePermission();
+  // 👇 INSTALL FIX: delay auth
+  setTimeout(async () => {
+    await protectPage();
+    await checkDevicePermission();
+  }, 2000);
 
   const btn = document.getElementById("logoutBtn");
   if (btn) btn.addEventListener("click", logout);
@@ -89,6 +92,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
 </head>
 
 <body class="bg-light">
+  <script>
+window.addEventListener("click", () => {
+  console.log("User interacted");
+});
+</script>
 
 <!-- ===== PREMIUM NAVBAR ===== -->
 <nav class="premium-navbar">
