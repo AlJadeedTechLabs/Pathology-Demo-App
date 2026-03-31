@@ -1,6 +1,5 @@
 {
   "name": "Al Jadeed Tech Lab's",
-  
   "short_name": "اَلْجَدِيد",
   "start_url": "/Pathology-Demo-App/",
   "scope": "/Pathology-Demo-App/",
@@ -8,16 +7,29 @@
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait",
+
   "icons": [
     {
-      "src": "assets/icon-192.png",
+      "src": "assets/192.JPG",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     },
     {
-      "src": "assets/icon-512.png",
+      "src": "assets/512.JPG",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/180.JPG",
+      "sizes": "180x180",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "assets/96.JPG",
+      "sizes": "96x96",
+      "type": "image/jpeg"
     }
   ]
 }
